@@ -1111,7 +1111,6 @@ function restoreAssets(assets) {
   (assets.scenes || []).forEach((item) => scenesData.push(item));
   renderCharacterList();
   renderSceneList();
-  persistWorkflowEvent("project-open", { title: currentProjectTitle });
 }
 
 function switchView(view, message) {
@@ -1881,6 +1880,7 @@ function showWorkflowSection(title) {
   scenesData.length = 0;
   renderCharacterList();
   renderSceneList();
+  persistWorkflowEvent("project-open", { title: currentProjectTitle });
 }
 
 /**
