@@ -57,6 +57,9 @@ topview_mirror_full_package/
 - `POST /api/agent/messages`：写入 Agent 对话，并返回执行计划
 - `GET /api/tasks` / `POST /api/tasks` / `PATCH /api/tasks/:id`：管理任务队列
 - `POST /api/projects`：创建首页项目记录
+- `POST /api/boards`：创建画布记录
+- `GET /api/assets` / `POST /api/assets` / `PATCH /api/assets/:type/:id` / `DELETE /api/assets/:type/:id`：管理角色与场景资产
+- `GET /api/workflow/events` / `POST /api/workflow/events`：记录短剧工作流步骤
 - `PATCH /api/canvas`：保存画布标题、缩放和设置
 - `POST /api/canvas/nodes` / `PATCH /api/canvas/nodes/:id`：保存画布节点位置、显示状态和 Comfy 状态
 - `GET /api/comfy/status` / `POST /api/comfy/queue`：检测本机 ComfyUI 并创建 Comfy 工作流任务

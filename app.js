@@ -179,7 +179,13 @@ const statusMap = {
   generating: "生成中",
   queued: "排队中",
   completed: "已完成",
+  paused: "已暂停",
+  failed: "失败",
 };
+
+function makeLocalId(prefix = "local") {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
 
 // Initialize tasks and status counts based on the existing DOM when the app loads. This function reads any
 // pre-rendered rows in the task table and populates the internal tasks array. If no rows are present,
@@ -198,14 +204,14 @@ function initializeTasks() {
         (key) => statusMap[key] === spans[1]?.textContent.trim(),
       );
       const note = spans[2]?.textContent.trim() || "";
-      tasks.push({ title, status: status || "completed", note });
+      tasks.push({ id: makeLocalId("task"), title, status: status || "completed", note });
     });
   } else {
     // Seed with default tasks if none exist
     tasks.push(
-      { title: "短剧分镜图", status: "generating", note: "约 2 分钟" },
-      { title: "图生视频 Shot 03", status: "queued", note: "Seedance 2.0" },
-      { title: "数字人口播", status: "completed", note: "下载" },
+      { id: makeLocalId("task"), title: "短剧分镜图", status: "generating", note: "约 2 分钟" },
+      { id: makeLocalId("task"), title: "图生视频 Shot 03", status: "queued", note: "Seedance 2.0" },
+      { id: makeLocalId("task"), title: "数字人口播", status: "completed", note: "下载" },
     );
   }
   renderTaskTable();
@@ -218,9 +224,13 @@ function renderTaskTable() {
   if (!taskTable) return;
   taskTable.innerHTML = tasks
     .map((task) => {
-      return `<div><span>${escapeHtml(task.title)}</span><strong>${
+      const id = task.id || makeLocalId("task");
+      task.id = id;
+      return `<div class="task-row" data-task-id="${escapeHtml(id)}"><span>${escapeHtml(task.title)}</span><strong>${
         statusMap[task.status] || task.status
-      }</strong><em>${escapeHtml(task.note)}</em></div>`;
+      }</strong><em>${escapeHtml(task.note)}</em><button class="task-detail-button" data-task-open="${escapeHtml(
+        id,
+      )}">详情</button></div>`;
     })
     .join("");
 }
@@ -257,7 +267,7 @@ function syncTaskPatch(task) {
 
 function addTask(title, options = {}) {
   const task = {
-    id: options.id || `local_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    id: options.id || makeLocalId("task"),
     title,
     status: options.status || "queued",
     note: options.note || "Seedance 2.0",
@@ -864,7 +874,8 @@ function mergeBackendTasks(nextTasks = []) {
   tasks.length = 0;
   nextTasks.forEach((task) => {
     tasks.push({
-      id: task.id,
+      ...task,
+      id: task.id || makeLocalId("task"),
       title: task.title || "任务",
       status: task.status || "queued",
       note: task.note || "",
@@ -1011,8 +1022,96 @@ async function loadStudioState() {
   const data = await apiJson("/api/state", { cache: "no-store" });
   if (!data) return;
   mergeBackendTasks(data.tasks || []);
+  restoreAssets(data.assets);
   restoreCanvasState(data.canvas);
   restoreAgentMessages(data.agentMessages);
+}
+
+function findTask(taskId) {
+  return tasks.find((task) => task.id === taskId);
+}
+
+function patchTask(taskId, patch) {
+  const task = findTask(taskId);
+  if (!task) return;
+  Object.assign(task, patch);
+  renderTaskTable();
+  renderStatusGrid();
+  apiJson(`/api/tasks/${encodeURIComponent(task.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+function openTaskDetail(taskId) {
+  const task = findTask(taskId);
+  if (!task) return;
+  toolOverlayBody.innerHTML = `
+    <h2>${escapeHtml(task.title)}</h2>
+    <p>任务状态：${escapeHtml(statusMap[task.status] || task.status)} · ${escapeHtml(task.note || "无备注")}</p>
+    <div class="overlay-meta-grid">
+      <span>来源</span><strong>${escapeHtml(task.source || "workspace")}</strong>
+      <span>模型</span><strong>${escapeHtml(task.note || "自动")}</strong>
+      <span>创建</span><strong>${escapeHtml(formatTime(task.createdAt))}</strong>
+    </div>
+    <div class="overlay-action-row">
+      <button class="generate-button small" data-task-action="start" data-task-id="${escapeHtml(task.id)}">开始</button>
+      <button class="generate-button small ghost" data-task-action="pause" data-task-id="${escapeHtml(task.id)}">暂停</button>
+      <button class="generate-button small" data-task-action="complete" data-task-id="${escapeHtml(task.id)}">完成</button>
+      <button class="generate-button small ghost" data-task-action="duplicate" data-task-id="${escapeHtml(task.id)}">复制</button>
+      <button class="generate-button small" data-task-action="canvas" data-task-id="${escapeHtml(task.id)}">加入画布</button>
+    </div>
+  `;
+  toolOverlay.classList.remove("hidden");
+  hydrateIcons();
+}
+
+function formatTime(value) {
+  if (!value) return "刚刚";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "刚刚";
+  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes(),
+  ).padStart(2, "0")}`;
+}
+
+function handleTaskOverlayAction(button) {
+  const task = findTask(button.dataset.taskId);
+  if (!task) return;
+  const action = button.dataset.taskAction;
+  if (action === "start") {
+    patchTask(task.id, { status: "generating", note: "约 2 分钟" });
+    showToast("任务已开始");
+  }
+  if (action === "pause") {
+    patchTask(task.id, { status: "paused", note: "已暂停" });
+    showToast("任务已暂停");
+  }
+  if (action === "complete") {
+    patchTask(task.id, { status: "completed", note: "下载" });
+    showToast("任务已完成");
+  }
+  if (action === "duplicate") {
+    addTask(`复制：${task.title}`, { note: task.note, source: task.source || "workspace" });
+    showToast("已复制任务");
+  }
+  if (action === "canvas") {
+    const type = String(task.note || task.title).toLowerCase().includes("seedance") ? "video" : "image";
+    createCanvasNode(type, task.title);
+    switchView("board", "已加入画布");
+  }
+  closeToolOverlay();
+}
+
+function restoreAssets(assets) {
+  if (!assets) return;
+  charactersData.length = 0;
+  scenesData.length = 0;
+  (assets.characters || []).forEach((item) => charactersData.push(item));
+  (assets.scenes || []).forEach((item) => scenesData.push(item));
+  renderCharacterList();
+  renderSceneList();
+  persistWorkflowEvent("project-open", { title: currentProjectTitle });
 }
 
 function switchView(view, message) {
@@ -1645,6 +1744,49 @@ function createProjectCard() {
   });
 }
 
+function openProjectMenu(card) {
+  const title = card?.querySelector("h3")?.textContent?.trim() || "未命名短剧";
+  toolOverlayBody.innerHTML = `
+    <h2>${escapeHtml(title)}</h2>
+    <p>对当前项目执行常用操作，操作记录会同步进入任务或工作流。</p>
+    <div class="overlay-action-row">
+      <button class="generate-button small" data-project-action="open" data-project-title="${escapeHtml(title)}">打开工作流</button>
+      <button class="generate-button small ghost" data-project-action="preview" data-project-title="${escapeHtml(title)}">生成预览</button>
+      <button class="generate-button small ghost" data-project-action="duplicate" data-project-title="${escapeHtml(title)}">复制项目</button>
+      <button class="generate-button small" data-project-action="canvas" data-project-title="${escapeHtml(title)}">发送到画布</button>
+    </div>
+  `;
+  toolOverlay.classList.remove("hidden");
+  hydrateIcons();
+}
+
+function handleProjectMenuAction(button) {
+  const title = button.dataset.projectTitle || "未命名短剧";
+  const action = button.dataset.projectAction;
+  if (action === "open") {
+    closeToolOverlay();
+    showWorkflowSection(title.slice(0, 28));
+    showToast("已打开项目工作流");
+    return;
+  }
+  if (action === "preview") {
+    addTask(`${title.slice(0, 18)} 项目预览`, { source: "project", note: "gpt-image-2 / Seedance 2.0" });
+    showToast("项目预览任务已创建");
+  }
+  if (action === "duplicate") {
+    const previous = storyInput.value;
+    storyInput.value = title;
+    createProjectCard();
+    storyInput.value = previous;
+    showToast("项目副本已创建");
+  }
+  if (action === "canvas") {
+    createCanvasNode("text", `项目需求：${title}`);
+    switchView("board", "项目已发送到画布");
+  }
+  closeToolOverlay();
+}
+
 // Create a new board card and prepend it to the board grid
 function createBoardCard() {
   const boardGrid = document.getElementById("boardGrid");
@@ -1659,6 +1801,10 @@ function createBoardCard() {
     <p>0 assets · by me</p>
   `;
   boardGrid.insertBefore(article, boardGrid.firstChild);
+  apiJson("/api/boards", {
+    method: "POST",
+    body: JSON.stringify({ title: "未命名画布", owner: "me", assetCount: 0 }),
+  });
   showToast("新建画布已创建");
 }
 
@@ -1780,6 +1926,7 @@ function createBeatSheet() {
         )}</td><td>${escapeHtml(b.duration)}</td></tr>`,
     )
     .join("");
+  persistWorkflowEvent("beat-sheet", { beats });
 }
 
 /**
@@ -1817,6 +1964,117 @@ function createStoryboard() {
     storyboardGrid.appendChild(div);
   }
   hydrateIcons();
+  persistWorkflowEvent("storyboard", { frames });
+}
+
+function openAssetOverlay(type) {
+  const isCharacter = type === "character";
+  const title = isCharacter ? "添加角色" : "添加场景";
+  const nameValue = isCharacter ? "白衣女主" : "雨夜街道";
+  const descValue = isCharacter
+    ? "冷静、克制、危险感，白色西装，电影感半身像"
+    : "湿润柏油路、霓虹反光、远处车辆灯光、悬疑气氛";
+  toolOverlayBody.innerHTML = `
+    <h2>${title}</h2>
+    <p>保存后会进入当前短剧工作流，也可以直接生成 gpt-image-2 参考图任务。</p>
+    <label class="overlay-field">
+      <span>${isCharacter ? "角色名称" : "场景名称"}</span>
+      <input id="assetNameInput" value="${escapeHtml(nameValue)}" />
+    </label>
+    <label class="overlay-field">
+      <span>${isCharacter ? "角色描述" : "场景描述"}</span>
+      <textarea id="assetDescriptionInput" rows="4">${escapeHtml(descValue)}</textarea>
+    </label>
+    <div class="overlay-action-row">
+      <button class="generate-button small" data-asset-submit="${type}">保存资产</button>
+      <button class="generate-button small ghost" data-asset-submit="${type}" data-generate-reference="true">保存并生成参考图</button>
+    </div>
+  `;
+  toolOverlay.classList.remove("hidden");
+  hydrateIcons();
+}
+
+function submitAssetOverlay(button) {
+  const type = button.dataset.assetSubmit;
+  const name = $("#assetNameInput")?.value.trim();
+  const description = $("#assetDescriptionInput")?.value.trim();
+  if (!name) {
+    showToast("请输入名称");
+    return;
+  }
+  const asset = {
+    id: makeLocalId(type === "character" ? "char" : "scene"),
+    type,
+    name,
+    description,
+    prompt: description,
+    imageModel: "gpt-image-2",
+  };
+  if (type === "character") charactersData.unshift(asset);
+  else scenesData.unshift(asset);
+  renderCharacterList();
+  renderSceneList();
+  apiJson("/api/assets", {
+    method: "POST",
+    body: JSON.stringify(asset),
+  }).then((data) => {
+    if (!data?.asset) return;
+    asset.id = data.asset.id;
+    renderCharacterList();
+    renderSceneList();
+  });
+  persistWorkflowEvent("asset", { type, name, description });
+  if (button.dataset.generateReference === "true") {
+    addTask(`${name} ${type === "character" ? "角色参考图" : "场景参考图"}`, {
+      source: "asset",
+      note: "gpt-image-2",
+    });
+  }
+  closeToolOverlay();
+  showToast(`${type === "character" ? "角色" : "场景"}已保存`);
+}
+
+function assetCollection(type) {
+  return type === "scene" ? scenesData : charactersData;
+}
+
+function handleAssetListAction(event) {
+  const button = event.target.closest("[data-asset-action]");
+  if (!button) return;
+  const type = button.dataset.assetType;
+  const asset = assetCollection(type).find((item) => item.id === button.dataset.assetId);
+  if (!asset) return;
+  if (button.dataset.assetAction === "reference") {
+    addTask(`${asset.name} ${type === "character" ? "角色参考图" : "场景参考图"}`, {
+      source: "asset",
+      note: "gpt-image-2",
+    });
+    showToast("参考图任务已创建");
+  }
+  if (button.dataset.assetAction === "canvas") {
+    createCanvasNode("image", `${asset.name} 参考图`);
+    switchView("board", "资产已加入画布");
+  }
+  if (button.dataset.assetAction === "delete") {
+    const collection = assetCollection(type);
+    const index = collection.findIndex((item) => item.id === asset.id);
+    if (index >= 0) collection.splice(index, 1);
+    renderCharacterList();
+    renderSceneList();
+    apiJson(`/api/assets/${type}/${encodeURIComponent(asset.id)}`, { method: "DELETE" });
+    showToast("资产已删除");
+  }
+}
+
+function persistWorkflowEvent(step, detail = {}) {
+  apiJson("/api/workflow/events", {
+    method: "POST",
+    body: JSON.stringify({
+      projectTitle: currentProjectTitle || "未命名短剧",
+      step,
+      detail,
+    }),
+  });
 }
 
 /**
@@ -1827,7 +2085,15 @@ function renderCharacterList() {
   characterList.innerHTML = charactersData
     .map(
       (c) =>
-        `<li><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.description || "")}</small></li>`,
+        `<li data-asset-id="${escapeHtml(c.id)}"><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(
+          c.description || "",
+        )}</small><span class="asset-actions"><button data-asset-action="reference" data-asset-type="character" data-asset-id="${escapeHtml(
+          c.id,
+        )}">参考图</button><button data-asset-action="canvas" data-asset-type="character" data-asset-id="${escapeHtml(
+          c.id,
+        )}">画布</button><button data-asset-action="delete" data-asset-type="character" data-asset-id="${escapeHtml(
+          c.id,
+        )}">删除</button></span></li>`,
     )
     .join("");
 }
@@ -1840,7 +2106,15 @@ function renderSceneList() {
   sceneList.innerHTML = scenesData
     .map(
       (s) =>
-        `<li><strong>${escapeHtml(s.name)}</strong><small>${escapeHtml(s.description || "")}</small></li>`,
+        `<li data-asset-id="${escapeHtml(s.id)}"><strong>${escapeHtml(s.name)}</strong><small>${escapeHtml(
+          s.description || "",
+        )}</small><span class="asset-actions"><button data-asset-action="reference" data-asset-type="scene" data-asset-id="${escapeHtml(
+          s.id,
+        )}">参考图</button><button data-asset-action="canvas" data-asset-type="scene" data-asset-id="${escapeHtml(
+          s.id,
+        )}">画布</button><button data-asset-action="delete" data-asset-type="scene" data-asset-id="${escapeHtml(
+          s.id,
+        )}">删除</button></span></li>`,
     )
     .join("");
 }
@@ -2038,8 +2312,17 @@ $("#blankProject").addEventListener("click", () => {
 generateButton.addEventListener("click", simulateGeneration);
 
 projectGrid.addEventListener("click", (event) => {
-  if (event.target.closest(".more-button")) {
-    showToast("项目操作菜单");
+  const moreButton = event.target.closest(".more-button");
+  if (moreButton) {
+    const card = moreButton.closest(".project-card");
+    openProjectMenu(card);
+    return;
+  }
+  const projectCard = event.target.closest(".project-card, .sample-card");
+  if (projectCard) {
+    const title = projectCard.querySelector("h3, strong")?.textContent?.trim() || "未命名短剧";
+    showWorkflowSection(title.slice(0, 28));
+    showToast("已打开项目工作流");
   }
 });
 
@@ -2082,7 +2365,8 @@ document.querySelectorAll(".tool-card").forEach((card) => {
       openToolOverlay(toolId);
     } else {
       const name = card.querySelector("strong")?.textContent || "工具";
-      showToast(`${name} 功能尚未开放`);
+      addTask(`${name} 工具任务`, { source: "tool", note: "待配置" });
+      showToast(`${name} 任务已创建`);
     }
   });
   // Keyboard activation for accessibility
@@ -2127,6 +2411,15 @@ selectAgent(selectedAgent);
 // Initialize workbench tasks and status counts after the initial hydration
 initializeTasks();
 
+const taskTableElement = document.getElementById("taskTable");
+if (taskTableElement) {
+  taskTableElement.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-task-id]");
+    if (!row) return;
+    openTaskDetail(row.dataset.taskId);
+  });
+}
+
 // Bind send button in the agent composer for chat interaction
 if (agentComposerButton && agentChat) {
   agentComposerButton.addEventListener("click", sendAgentMessage);
@@ -2142,7 +2435,7 @@ if (agentComposerButton && agentChat) {
 // Bind the asset upload button to show a toast since actual upload isn't implemented yet
 if (assetUploadButton) {
   assetUploadButton.addEventListener("click", () => {
-    showToast("上传功能尚未开放");
+    openToolOverlay("image-edit");
   });
 }
 
@@ -2298,11 +2591,12 @@ if (closeBoardEditorButton) {
 if (exportBoardButton) {
   exportBoardButton.addEventListener("click", () => {
     if (currentBoardTitle) {
-      addTask(`${currentBoardTitle} 导出画布`);
+      addTask(`${currentBoardTitle} 导出画布`, { source: "board", note: "导出" });
     } else {
-      addTask("导出画布");
+      addTask("导出画布", { source: "board", note: "导出" });
     }
-    showToast("画布已导出（模拟）");
+    persistWorkflowEvent("board-export", { title: currentBoardTitle || "未命名画布" });
+    showToast("画布导出任务已创建");
   });
 }
 
@@ -2313,33 +2607,50 @@ if (closeToolOverlayButton) {
   });
 }
 
+if (toolOverlayBody) {
+  toolOverlayBody.addEventListener("click", (event) => {
+    const taskButton = event.target.closest("[data-task-action]");
+    if (taskButton) {
+      handleTaskOverlayAction(taskButton);
+      return;
+    }
+    const assetButton = event.target.closest("[data-asset-submit]");
+    if (assetButton) {
+      submitAssetOverlay(assetButton);
+      return;
+    }
+    const projectButton = event.target.closest("[data-project-action]");
+    if (projectButton) {
+      handleProjectMenuAction(projectButton);
+    }
+  });
+}
+
 // --- Bind asset management actions ---
 // Add a new character
 if (addCharacterButton) {
   addCharacterButton.addEventListener("click", () => {
-    const name = prompt("输入角色名称");
-    if (!name) return;
-    const description = prompt("输入角色描述", "");
-    charactersData.push({ name: name.trim(), description: (description || "").trim() });
-    renderCharacterList();
+    openAssetOverlay("character");
   });
 }
 // Add a new scene
 if (addSceneButton) {
   addSceneButton.addEventListener("click", () => {
-    const name = prompt("输入场景名称");
-    if (!name) return;
-    const description = prompt("输入场景描述", "");
-    scenesData.push({ name: name.trim(), description: (description || "").trim() });
-    renderSceneList();
+    openAssetOverlay("scene");
   });
 }
+characterList?.addEventListener("click", handleAssetListAction);
+sceneList?.addEventListener("click", handleAssetListAction);
 // Proceed to beat sheet from asset step
 if (nextBeatButton) {
   nextBeatButton.addEventListener("click", () => {
     if (currentProjectTitle) {
       addTask(`${currentProjectTitle} 资产创建`);
     }
+    persistWorkflowEvent("assets-confirmed", {
+      characters: charactersData.map((item) => item.name),
+      scenes: scenesData.map((item) => item.name),
+    });
     // Generate default beat sheet
     createBeatSheet();
     showStep("beat");
@@ -2355,6 +2666,7 @@ if (nextStoryboardButton) {
       addTask(`${currentProjectTitle} 剧情节奏`);
     }
     createStoryboard();
+    persistWorkflowEvent("storyboard-started", { model: "gpt-image-2", frameCount: 8 });
     showStep("storyboard");
   });
 }
@@ -2364,6 +2676,10 @@ if (nextVoiceoverButton) {
     if (currentProjectTitle) {
       addTask(`${currentProjectTitle} 故事板`);
     }
+    persistWorkflowEvent("voiceover-started", {
+      voice: voiceSelect?.value || "female",
+      captions: !!captionToggle?.checked,
+    });
     showStep("voiceover");
   });
 }
@@ -2373,6 +2689,10 @@ if (nextFinalButton) {
     if (currentProjectTitle) {
       addTask(`${currentProjectTitle} 配音字幕`);
     }
+    persistWorkflowEvent("final-video-started", {
+      music: $("#musicSelect")?.value || "none",
+      videoModel: "Seedance 2.0",
+    });
     showStep("final");
   });
 }
@@ -2382,15 +2702,22 @@ if (generateFinalButton) {
     if (currentProjectTitle) {
       addTask(`${currentProjectTitle} 最终视频`);
     }
+    persistWorkflowEvent("final-export", {
+      resolution: resolutionSelect?.value || "720p",
+      ratio: ratioSelect?.value || "9:16",
+      videoModel: "Seedance 2.0",
+    });
     if (finalPreview) {
       finalPreview.classList.remove("hidden");
     }
+    showToast("最终视频已生成");
   });
 }
 // Simulate download of final video
 if (downloadFinalButton) {
   downloadFinalButton.addEventListener("click", () => {
-    showToast("视频已下载（模拟）");
+    persistWorkflowEvent("download", { projectTitle: currentProjectTitle || "未命名短剧" });
+    showToast("视频已准备下载");
   });
 }
 
@@ -2410,10 +2737,14 @@ const frameActionLabels = {
  */
 function handleFrameAction(action, index) {
   const label = frameActionLabels[action] || action;
-  showToast(`${label} 功能尚未开放`);
+  showToast(`${label} 任务已创建`);
   if (currentProjectTitle) {
-    addTask(`${currentProjectTitle} 故事板帧${index + 1} ${label}`);
+    addTask(`${currentProjectTitle} 故事板帧${index + 1} ${label}`, {
+      source: "storyboard",
+      note: action === "upscale" ? "gpt-image-2" : "编辑",
+    });
   }
+  persistWorkflowEvent("frame-action", { action, index });
 }
 
 // Delegate clicks on storyboard frame action buttons

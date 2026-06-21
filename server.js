@@ -37,6 +37,11 @@ const agentPlanTemplates = {
 const defaultState = {
   projects: [],
   tasks: [],
+  boards: [],
+  assets: {
+    characters: [],
+    scenes: [],
+  },
   canvas: {
     title: "《白杀》",
     zoom: 1,
@@ -65,6 +70,13 @@ function ensureStateShape(input) {
   const state = { ...clone(defaultState), ...(input || {}) };
   state.projects = Array.isArray(state.projects) ? state.projects : [];
   state.tasks = Array.isArray(state.tasks) ? state.tasks : [];
+  state.boards = Array.isArray(state.boards) ? state.boards : [];
+  state.assets = {
+    ...clone(defaultState.assets),
+    ...(state.assets || {}),
+  };
+  state.assets.characters = Array.isArray(state.assets.characters) ? state.assets.characters : [];
+  state.assets.scenes = Array.isArray(state.assets.scenes) ? state.assets.scenes : [];
   state.agentMessages = Array.isArray(state.agentMessages) ? state.agentMessages : [];
   state.feedback = Array.isArray(state.feedback) ? state.feedback : [];
   state.workflowRuns = Array.isArray(state.workflowRuns) ? state.workflowRuns : [];
@@ -151,6 +163,43 @@ function upsertCanvasNode(node) {
   }
   saveState();
   return next;
+}
+
+function assetKey(kind) {
+  const normalized = String(kind || "").toLowerCase();
+  if (["scene", "scenes"].includes(normalized)) return "scenes";
+  return "characters";
+}
+
+function createAsset(kind, payload) {
+  const key = assetKey(kind);
+  const asset = {
+    id: payload.id || makeId(key === "characters" ? "char" : "scene"),
+    type: key === "characters" ? "character" : "scene",
+    name: String(payload.name || "未命名"),
+    description: String(payload.description || ""),
+    prompt: String(payload.prompt || payload.description || ""),
+    imageModel: String(payload.imageModel || "gpt-image-2"),
+    createdAt: payload.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  state.assets[key].unshift(asset);
+  saveState();
+  return asset;
+}
+
+function addWorkflowEvent(payload) {
+  const event = {
+    id: payload.id || makeId("workflow"),
+    projectTitle: String(payload.projectTitle || "未命名短剧"),
+    step: String(payload.step || "workflow"),
+    status: String(payload.status || "completed"),
+    detail: payload.detail || {},
+    createdAt: payload.createdAt || new Date().toISOString(),
+  };
+  state.workflowRuns.unshift(event);
+  saveState();
+  return event;
 }
 
 function buildAgentReply(payload) {
@@ -310,6 +359,94 @@ function handleApi(req, res, pathname) {
       Object.assign(task, payload, { updatedAt: new Date().toISOString() });
       saveState();
       sendJson(res, 200, { task });
+    });
+    return true;
+  }
+
+  if (pathname === "/api/assets" && req.method === "GET") {
+    sendJson(res, 200, { assets: state.assets });
+    return true;
+  }
+
+  if (pathname === "/api/assets" && req.method === "POST") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      const asset = createAsset(payload.type || payload.kind, payload);
+      sendJson(res, 201, { asset, assets: state.assets });
+    });
+    return true;
+  }
+
+  const assetMatch = pathname.match(/^\/api\/assets\/([^/]+)\/([^/]+)$/);
+  if (assetMatch && req.method === "PATCH") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      const key = assetKey(assetMatch[1]);
+      const asset = state.assets[key].find((item) => item.id === assetMatch[2]);
+      if (!asset) {
+        sendJson(res, 404, { error: "Asset not found" });
+        return;
+      }
+      Object.assign(asset, payload, { updatedAt: new Date().toISOString() });
+      saveState();
+      sendJson(res, 200, { asset, assets: state.assets });
+    });
+    return true;
+  }
+
+  if (assetMatch && req.method === "DELETE") {
+    const key = assetKey(assetMatch[1]);
+    const before = state.assets[key].length;
+    state.assets[key] = state.assets[key].filter((item) => item.id !== assetMatch[2]);
+    if (state.assets[key].length === before) {
+      sendJson(res, 404, { error: "Asset not found" });
+      return true;
+    }
+    saveState();
+    sendJson(res, 200, { assets: state.assets });
+    return true;
+  }
+
+  if (pathname === "/api/workflow/events" && req.method === "GET") {
+    sendJson(res, 200, { workflowRuns: state.workflowRuns });
+    return true;
+  }
+
+  if (pathname === "/api/workflow/events" && req.method === "POST") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      const event = addWorkflowEvent(payload);
+      sendJson(res, 201, { event, workflowRuns: state.workflowRuns });
+    });
+    return true;
+  }
+
+  if (pathname === "/api/boards" && req.method === "POST") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      const board = {
+        id: payload.id || makeId("board"),
+        title: String(payload.title || "未命名画布"),
+        owner: String(payload.owner || "me"),
+        assetCount: Number(payload.assetCount || 0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      state.boards.unshift(board);
+      saveState();
+      sendJson(res, 201, { board, boards: state.boards });
     });
     return true;
   }
