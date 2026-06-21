@@ -128,6 +128,13 @@ let selectedAgent = "canvas";
 let canvasZoom = 1;
 let canvasNodeCounter = 0;
 let canvasDragState = null;
+let studioBackendAvailable = false;
+let canvasSettingsState = {
+  grid: true,
+  snap: false,
+  model: "Gemini 3.5 Flash",
+  mode: "Agent",
+};
 
 // Keep track of the current board title during editing
 let currentBoardTitle = "";
@@ -240,38 +247,57 @@ function renderStatusGrid() {
 
 // Add a new task to the workbench. The task starts in the queued state and
 // will automatically progress through generating and completed states over time.
-function addTask(title) {
-  const task = { title, status: "queued", note: "Seedance 2.0" };
+function syncTaskPatch(task) {
+  if (!task?.id || !studioBackendAvailable) return;
+  apiJson(`/api/tasks/${encodeURIComponent(task.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: task.status, note: task.note }),
+  });
+}
+
+function addTask(title, options = {}) {
+  const task = {
+    id: options.id || `local_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    title,
+    status: options.status || "queued",
+    note: options.note || "Seedance 2.0",
+    source: options.source || "frontend",
+  };
   tasks.unshift(task);
   renderTaskTable();
   renderStatusGrid();
+
+  if (options.persist !== false) {
+    apiJson("/api/tasks", {
+      method: "POST",
+      body: JSON.stringify(task),
+    }).then((data) => {
+      const saved = data?.tasks?.[0];
+      if (!saved) return;
+      task.id = saved.id;
+      task.createdAt = saved.createdAt;
+      task.updatedAt = saved.updatedAt;
+    });
+  }
+
   // After 1.5 seconds, move the task to generating with an ETA message
   setTimeout(() => {
     task.status = "generating";
     task.note = "约 2 分钟";
     renderTaskTable();
     renderStatusGrid();
+    syncTaskPatch(task);
     // After another 4 seconds, mark the task as completed with a download link
     setTimeout(() => {
       task.status = "completed";
       task.note = "下载";
       renderTaskTable();
       renderStatusGrid();
+      syncTaskPatch(task);
     }, 4000);
   }, 1500);
 
-  // If running over HTTP, send the task to the backend for persistence
-  if (window.location.protocol.startsWith("http")) {
-    try {
-      fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, status: "queued", note: "" }),
-      }).catch(() => {});
-    } catch (e) {
-      // Network errors are ignored
-    }
-  }
+  return task;
 }
 
 const agentProfiles = {
@@ -817,6 +843,178 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 1900);
 }
 
+async function apiJson(path, options = {}) {
+  if (!location.protocol.startsWith("http")) return null;
+  try {
+    const response = await fetch(path, {
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      ...options,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    studioBackendAvailable = true;
+    return response.json();
+  } catch (error) {
+    studioBackendAvailable = false;
+    return null;
+  }
+}
+
+function mergeBackendTasks(nextTasks = []) {
+  if (!Array.isArray(nextTasks)) return;
+  tasks.length = 0;
+  nextTasks.forEach((task) => {
+    tasks.push({
+      id: task.id,
+      title: task.title || "任务",
+      status: task.status || "queued",
+      note: task.note || "",
+    });
+  });
+  renderTaskTable();
+  renderStatusGrid();
+}
+
+function canvasNodeState(node) {
+  if (!node) return null;
+  const type = node.dataset.canvasType || node.dataset.canvasNode || "node";
+  return {
+    id: node.dataset.canvasNode,
+    type,
+    label: node.dataset.canvasLabel || node.textContent.trim(),
+    icon: node.dataset.canvasIcon || "",
+    model: node.dataset.canvasModel || "",
+    x: Math.round(node.offsetLeft),
+    y: Math.round(node.offsetTop),
+    hidden: !!node.hidden,
+    selected: node.classList.contains("selected"),
+    status: node.dataset.canvasStatus || undefined,
+  };
+}
+
+function persistCanvasNode(node) {
+  const payload = canvasNodeState(node);
+  if (!payload?.id) return;
+  apiJson(`/api/canvas/nodes/${encodeURIComponent(payload.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+function persistCanvasPatch(payload) {
+  apiJson("/api/canvas", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+function persistCanvasSettings(settings) {
+  canvasSettingsState = { ...canvasSettingsState, ...settings };
+  persistCanvasPatch({ settings });
+}
+
+function byCanvasNodeId(id) {
+  if (!id) return null;
+  return $$("[data-canvas-node]").find((node) => node.dataset.canvasNode === id) || null;
+}
+
+function setCanvasTitle(title) {
+  if (!canvasTitleButton || !title) return;
+  canvasTitleButton.innerHTML = `${escapeHtml(title)}<span data-icon="chevron-down"></span>`;
+  hydrateIcons();
+}
+
+function applyCanvasNodeState(node, data) {
+  if (!node || !data) return;
+  if (Number.isFinite(data.x)) node.style.left = `${data.x}px`;
+  if (Number.isFinite(data.y)) node.style.top = `${data.y}px`;
+  if (typeof data.hidden === "boolean") node.hidden = data.hidden;
+  if (data.status && node.dataset.canvasNode === "comfy") setComfyStatus(data.status === "已连接", data.status);
+}
+
+function buildDynamicCanvasNode(data) {
+  if (!canvasStage || !data?.id || byCanvasNodeId(data.id)) return null;
+  const node = document.createElement("div");
+  const type = data.type || "media";
+  node.className = type === "text" ? "canvas-node text-node" : "canvas-node media-node";
+  node.dataset.canvasNode = data.id;
+  node.dataset.canvasType = type;
+  node.dataset.canvasLabel = data.label || "";
+  node.dataset.canvasIcon = data.icon || "";
+  node.dataset.canvasModel = data.model || "";
+  if (type === "text") {
+    node.textContent = data.label || "文字卡片";
+  } else {
+    const icon = data.icon || "box";
+    const label = data.label || "素材卡片";
+    const model = data.model || "Canvas";
+    node.innerHTML = `<span data-icon="${escapeHtml(icon)}"></span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(model)}</small>`;
+  }
+  canvasStage.appendChild(node);
+  applyCanvasNodeState(node, data);
+  return node;
+}
+
+function restoreCanvasState(canvas) {
+  if (!canvas) return;
+  canvasSettingsState = { ...canvasSettingsState, ...(canvas.settings || {}) };
+  if (canvas.title) setCanvasTitle(canvas.title);
+  if (Number.isFinite(canvas.zoom)) setCanvasZoom(canvas.zoom, false);
+  if (canvas.settings?.model) selectCanvasModel(canvas.settings.model, false, false);
+  if (typeof canvas.settings?.grid === "boolean") {
+    canvasWorkspace?.classList.toggle("grid-disabled", !canvas.settings.grid);
+  }
+  if (canvas.settings?.mode && canvasModelPopover) {
+    $$(".model-mode-row button", canvasModelPopover).forEach((button) => {
+      button.classList.toggle("selected", button.querySelector("strong")?.textContent === canvas.settings.mode);
+    });
+  }
+  (canvas.nodes || []).forEach((nodeData) => {
+    const existing = byCanvasNodeId(nodeData.id);
+    const node = existing || buildDynamicCanvasNode(nodeData);
+    applyCanvasNodeState(node, nodeData);
+    if (nodeData.selected) selectCanvasNode(node);
+    const numeric = String(nodeData.id || "").match(/-(\d+)$/);
+    if (numeric) canvasNodeCounter = Math.max(canvasNodeCounter, Number(numeric[1]));
+  });
+  hydrateIcons();
+}
+
+function restoreAgentMessages(messages = []) {
+  const thread = $(".canvas-agent-thread");
+  if (!thread || !Array.isArray(messages) || !messages.length) return;
+  thread.innerHTML = "";
+  messages.slice(-10).forEach((message) => {
+    if (message.role === "user") {
+      const bubble = document.createElement("div");
+      bubble.className = "canvas-prompt-bubble";
+      bubble.innerHTML = `<span>你</span>${escapeHtml(message.text || "")}`;
+      thread.appendChild(bubble);
+      return;
+    }
+    const result = document.createElement("article");
+    result.className = "canvas-result-card";
+    result.innerHTML = `
+      <div class="canvas-result-head">
+        <span data-icon="sparkles"></span>
+        <small>${escapeHtml(message.model || "Agent")}</small>
+        <span class="canvas-check" data-icon="check-circle-2"></span>
+      </div>
+      <p><strong>Agent 回复</strong> ${escapeHtml(message.text || "")}</p>
+    `;
+    thread.appendChild(result);
+  });
+  hydrateIcons();
+  thread.scrollTop = thread.scrollHeight;
+}
+
+async function loadStudioState() {
+  const data = await apiJson("/api/state", { cache: "no-store" });
+  if (!data) return;
+  mergeBackendTasks(data.tasks || []);
+  restoreCanvasState(data.canvas);
+  restoreAgentMessages(data.agentMessages);
+}
+
 function switchView(view, message) {
   if (!view) return;
   railItems.forEach((button) => button.classList.toggle("active", button.dataset.view === view));
@@ -827,39 +1025,52 @@ function switchView(view, message) {
   if (message) showToast(message);
 }
 
-function setCanvasZoom(nextZoom) {
-  canvasZoom = Math.min(1.6, Math.max(0.4, Number(nextZoom.toFixed(2))));
+function setCanvasZoom(nextZoom, shouldPersist = true) {
+  const numericZoom = Number(nextZoom);
+  if (!Number.isFinite(numericZoom)) return;
+  canvasZoom = Math.min(1.6, Math.max(0.4, Number(numericZoom.toFixed(2))));
   if (canvasWorkspace) {
     canvasWorkspace.style.setProperty("--canvas-zoom", canvasZoom.toString());
   }
   if (canvasZoomValue) {
     canvasZoomValue.textContent = `${Math.round(canvasZoom * 100)}%`;
   }
+  if (shouldPersist) persistCanvasPatch({ zoom: canvasZoom });
 }
 
 function nudgeCanvasZoom(direction) {
   setCanvasZoom(canvasZoom + (direction === "in" ? 0.1 : -0.1));
 }
 
-function selectCanvasModel(modelName) {
+function selectCanvasModel(modelName, notify = true, shouldPersist = true) {
   if (!canvasModelPopover || !canvasModelButton) return;
   canvasModelPopover.querySelectorAll("[data-canvas-model]").forEach((button) => {
     button.classList.toggle("selected", button.dataset.canvasModel === modelName);
   });
   canvasModelButton.textContent = modelName;
-  showToast(`画布模型已切换：${modelName}`);
+  if (shouldPersist) persistCanvasSettings({ model: modelName });
+  if (notify) showToast(`画布模型已切换：${modelName}`);
 }
 
-function sendCanvasPrompt() {
+async function sendCanvasPrompt() {
   const text = canvasPromptInput?.value.trim();
   if (!text) {
     showToast("先描述你的想法");
     return;
   }
-  appendCanvasThread(text);
-  addTask(`画布 Agent：${text.slice(0, 18)}`);
-  showToast("已发送到画布 Agent");
   canvasPromptInput.value = "";
+  const data = await apiJson("/api/agent/messages", {
+    method: "POST",
+    body: JSON.stringify({
+      text,
+      agentId: selectedAgent,
+      model: canvasModelButton?.textContent?.trim() || "Gemini 3.5 Flash",
+    }),
+  });
+  appendCanvasThread(text, data?.reply);
+  if (Array.isArray(data?.plan)) addAgentTasks(data.plan, deriveTitle(text));
+  else addTask(`画布 Agent：${text.slice(0, 18)}`);
+  showToast("已发送到画布 Agent");
 }
 
 function openCanvasPanel(title, html) {
@@ -994,6 +1205,7 @@ function renderCanvasToolPanel(type) {
 }
 
 function renderCanvasTopPanel(type) {
+  const currentCanvasTitle = canvasTitleButton?.childNodes?.[0]?.textContent?.trim() || "《白杀》";
   const taskList = tasks
     .slice(0, 4)
     .map((task) => `<button class="canvas-panel-action">${escapeHtml(task.title)} · ${escapeHtml(statusMap[task.status] || task.status)}</button>`)
@@ -1003,7 +1215,7 @@ function renderCanvasTopPanel(type) {
       title: "项目",
       body: `
         <section class="canvas-panel-section">
-          <strong>《白杀》</strong>
+          <strong>${escapeHtml(currentCanvasTitle)}</strong>
           <p>当前画布：角色设定与分镜合成。</p>
           <button class="canvas-panel-action" data-canvas-action="rename-project">重命名项目</button>
           <button class="canvas-panel-action" data-canvas-action="duplicate-canvas">复制画布</button>
@@ -1016,8 +1228,8 @@ function renderCanvasTopPanel(type) {
         <section class="canvas-panel-section">
           <strong>工作区</strong>
           <div class="canvas-panel-actions">
-            <button class="canvas-panel-action selected" data-canvas-action="toggle-grid">网格显示</button>
-            <button class="canvas-panel-action" data-canvas-action="toggle-snap">吸附对齐</button>
+            <button class="canvas-panel-action${canvasSettingsState.grid ? " selected" : ""}" data-canvas-action="toggle-grid">网格显示</button>
+            <button class="canvas-panel-action${canvasSettingsState.snap ? " selected" : ""}" data-canvas-action="toggle-snap">吸附对齐</button>
             <button class="canvas-panel-action" data-canvas-action="reset-zoom">重置缩放</button>
           </div>
         </section>
@@ -1083,14 +1295,16 @@ function selectCanvasNode(node) {
   $$("[data-canvas-node]").forEach((item) => item.classList.toggle("selected", item === node));
 }
 
-function createCanvasNode(type, label = "") {
+function createCanvasNode(type, label = "", options = {}) {
   if (!canvasStage) return null;
   canvasNodeCounter += 1;
   const node = document.createElement("div");
   node.className = type === "text" ? "canvas-node text-node" : "canvas-node media-node";
-  node.dataset.canvasNode = `${type}-${canvasNodeCounter}`;
-  node.style.left = `${150 + canvasNodeCounter * 26}px`;
-  node.style.top = `${132 + canvasNodeCounter * 18}px`;
+  node.dataset.canvasNode = options.id || `${type}-${canvasNodeCounter}`;
+  node.dataset.canvasType = type;
+  node.dataset.canvasLabel = label || "";
+  node.style.left = `${options.x ?? 150 + canvasNodeCounter * 26}px`;
+  node.style.top = `${options.y ?? 132 + canvasNodeCounter * 18}px`;
   if (type === "text") {
     node.textContent = label || "新的文字卡片";
   } else {
@@ -1099,12 +1313,17 @@ function createCanvasNode(type, label = "") {
       video: ["clapperboard", "视频生成卡片", "Seedance 2.0"],
       audio: ["audio-lines", "音频生成卡片", "旁白 / 音效"],
     }[type] || ["box", "素材卡片", "Canvas"];
+    node.dataset.canvasIcon = meta[0];
+    node.dataset.canvasLabel = meta[1];
+    node.dataset.canvasModel = meta[2];
     node.innerHTML = `<span data-icon="${meta[0]}"></span><strong>${meta[1]}</strong><small>${meta[2]}</small>`;
   }
+  if (typeof options.hidden === "boolean") node.hidden = options.hidden;
   canvasStage.appendChild(node);
   hydrateIcons();
   selectCanvasNode(node);
-  showToast("已添加到画布，可拖动调整位置");
+  if (options.persist !== false) persistCanvasNode(node);
+  if (options.toast !== false) showToast("已添加到画布，可拖动调整位置");
   return node;
 }
 
@@ -1112,12 +1331,14 @@ function revealComfyNode() {
   if (!comfyNode) return;
   comfyNode.hidden = false;
   selectCanvasNode(comfyNode);
+  persistCanvasNode(comfyNode);
   checkComfyStatus();
   showToast("ComfyUI 已加入画布");
 }
 
 function setComfyStatus(online, message) {
   const statusText = $("#comfyStatusText");
+  if (comfyNode) comfyNode.dataset.canvasStatus = message;
   [statusText, comfyNodeStatus].forEach((item) => {
     if (!item) return;
     item.textContent = message;
@@ -1133,18 +1354,21 @@ async function checkComfyStatus() {
     const data = await response.json();
     if (response.ok && data.online) {
       setComfyStatus(true, "已连接");
+      persistCanvasNode(comfyNode);
       showToast("ComfyUI 已连接");
       return true;
     }
     setComfyStatus(false, "未连接");
+    persistCanvasNode(comfyNode);
   } catch (error) {
     setComfyStatus(false, "未连接");
+    persistCanvasNode(comfyNode);
   }
   showToast("未检测到 ComfyUI");
   return false;
 }
 
-function appendCanvasThread(text) {
+function appendCanvasThread(text, replyText = "") {
   const thread = $(".canvas-agent-thread");
   if (!thread) return;
   const bubble = document.createElement("div");
@@ -1159,7 +1383,9 @@ function appendCanvasThread(text) {
       <small>Agent</small>
       <span class="canvas-check" data-icon="check-circle-2"></span>
     </div>
-    <p><strong>已拆解任务</strong> 将根据你的描述生成可加入画布的角色、场景、分镜或视频节点。</p>
+    <p><strong>已拆解任务</strong> ${escapeHtml(
+      replyText || "将根据你的描述生成可加入画布的角色、场景、分镜或视频节点。",
+    )}</p>
   `;
   thread.appendChild(result);
   hydrateIcons();
@@ -1184,19 +1410,56 @@ function handleCanvasPanelAction(event) {
     "create-text": () => createCanvasNode("text", $("#canvasTextInput")?.value || "新的文字卡片"),
     "reset-zoom": () => setCanvasZoom(1),
     "preview-canvas": () => {
-      addTask("画布合成预览");
+      addTask("画布合成预览", { source: "canvas", note: "gpt-image-2 / Seedance 2.0" });
       showToast("预览任务已创建");
     },
-    "submit-feedback": () => showToast("反馈已记录"),
-    "rename-project": () => showToast("项目名已进入可编辑状态"),
-    "duplicate-canvas": () => showToast("画布副本已创建"),
+    "submit-feedback": () => {
+      const text = $("#canvasFeedbackInput")?.value.trim() || "";
+      apiJson("/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({ text, source: "canvas" }),
+      });
+      showToast("反馈已记录");
+    },
+    "rename-project": () => {
+      const currentTitle = canvasTitleButton?.childNodes?.[0]?.textContent?.trim() || "《白杀》";
+      openCanvasPanel(
+        "项目",
+        `
+          <section class="canvas-panel-section">
+            <strong>重命名项目</strong>
+            <input id="canvasTitleInput" value="${escapeHtml(currentTitle)}" />
+            <button class="canvas-panel-action primary" data-canvas-action="save-title">保存</button>
+          </section>
+        `,
+      );
+    },
+    "save-title": () => {
+      const nextTitle = $("#canvasTitleInput")?.value.trim();
+      if (!nextTitle) {
+        showToast("请输入项目名");
+        return;
+      }
+      setCanvasTitle(nextTitle.trim());
+      persistCanvasPatch({ title: nextTitle.trim() });
+      showToast("项目名已更新");
+    },
+    "duplicate-canvas": () => {
+      addTask("复制画布", { source: "canvas", note: "副本已创建" });
+      showToast("画布副本已创建");
+    },
     "toggle-grid": () => {
       actionButton.classList.toggle("selected");
-      showToast(actionButton.classList.contains("selected") ? "网格已开启" : "网格已关闭");
+      const enabled = actionButton.classList.contains("selected");
+      canvasWorkspace?.classList.toggle("grid-disabled", !enabled);
+      persistCanvasSettings({ grid: enabled });
+      showToast(enabled ? "网格已开启" : "网格已关闭");
     },
     "toggle-snap": () => {
       actionButton.classList.toggle("selected");
-      showToast(actionButton.classList.contains("selected") ? "吸附已开启" : "吸附已关闭");
+      const enabled = actionButton.classList.contains("selected");
+      persistCanvasSettings({ snap: enabled });
+      showToast(enabled ? "吸附已开启" : "吸附已关闭");
     },
     "credit-detail": () => showToast("已展开积分明细"),
   };
@@ -1210,7 +1473,19 @@ function handleComfyAction(event) {
   if (action === "check") checkComfyStatus();
   if (action === "open") window.open("http://127.0.0.1:8188/", "_blank", "noopener,noreferrer");
   if (action === "queue") {
-    addTask("ComfyUI 工作流队列");
+    apiJson("/api/comfy/queue", {
+      method: "POST",
+      body: JSON.stringify({ title: "ComfyUI 工作流队列" }),
+    }).then((data) => {
+      const task = data?.task;
+      if (task) {
+        tasks.unshift(task);
+        renderTaskTable();
+        renderStatusGrid();
+      } else {
+        addTask("ComfyUI 工作流队列", { source: "comfy", note: "ComfyUI" });
+      }
+    });
     showToast("已加入 Comfy 工作流任务");
   }
   return true;
@@ -1246,7 +1521,9 @@ function moveCanvasNode(event) {
 
 function endCanvasNodeDrag(event) {
   if (!canvasDragState || canvasDragState.pointerId !== event.pointerId) return;
-  canvasDragState.node.classList.remove("dragging");
+  const { node } = canvasDragState;
+  node.classList.remove("dragging");
+  persistCanvasNode(node);
   canvasDragState = null;
 }
 
@@ -1357,6 +1634,15 @@ function createProjectCard() {
   projectGrid.insertBefore(article, projectGrid.children[1]);
   hydrateIcons();
   refreshProjectCount();
+  apiJson("/api/projects", {
+    method: "POST",
+    body: JSON.stringify({
+      title,
+      mode: selectedMode,
+      status: "generating",
+      source: attachedFileName || "prompt",
+    }),
+  });
 }
 
 // Create a new board card and prepend it to the board grid
@@ -1376,8 +1662,8 @@ function createBoardCard() {
   showToast("新建画布已创建");
 }
 
-function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (char) => {
+function escapeHtml(value = "") {
+  return String(value).replace(/[&<>"']/g, (char) => {
     const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
     return map[char];
   });
@@ -1577,7 +1863,7 @@ function sendAgentMessage() {
   agentChat.appendChild(userMsg);
   // Determine whether to use the backend API based on the current protocol.
   const useBackend = location.protocol.startsWith("http");
-  const finishChat = (plan, title) => {
+  const finishChat = (plan, title, replyText = "") => {
     // Update the plan card
     if (agentPlanSteps) {
       agentPlanSteps.innerHTML = plan.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
@@ -1587,7 +1873,7 @@ function sendAgentMessage() {
     // Compose assistant reply
     const baseReply = agentProfiles[selectedAgent]?.assistant ||
       "已收到您的要求，正在为您规划场景和分镜。";
-    const assistantReply = `${baseReply} 已生成执行计划。`;
+    const assistantReply = replyText || `${baseReply} 已生成执行计划。`;
     const assistMsg = document.createElement("div");
     assistMsg.className = "message assistant";
     assistMsg.textContent = assistantReply;
@@ -1598,18 +1884,19 @@ function sendAgentMessage() {
     agentComposerInput.value = "";
   };
   if (useBackend) {
-    // Send request to backend to generate a plan for this agent and text
-    const payload = { agentId: selectedAgent, text };
-    fetch("/api/agent/plan", {
+    const payload = {
+      agentId: selectedAgent,
+      text,
+      model: agentChatVersion?.textContent?.trim() || agentProfiles[selectedAgent]?.name,
+    };
+    apiJson("/api/agent/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
-      .then((res) => res.json())
       .then((data) => {
-        const plan = Array.isArray(data.plan) ? data.plan : [];
+        const plan = Array.isArray(data?.plan) ? data.plan : [];
         const title = deriveTitle(text);
-        finishChat(plan, title);
+        finishChat(plan, title, data?.reply);
       })
       .catch((err) => {
         console.error("Failed to fetch plan", err);
@@ -1925,7 +2212,9 @@ if (canvasModelPopover) {
     const mode = event.target.closest(".model-mode-row button");
     if (mode) {
       $$(".model-mode-row button", canvasModelPopover).forEach((button) => button.classList.toggle("selected", button === mode));
-      showToast(`创作模式：${mode.querySelector("strong")?.textContent || "Agent"}`);
+      const label = mode.querySelector("strong")?.textContent || "Agent";
+      persistCanvasSettings({ mode: label });
+      showToast(`创作模式：${label}`);
       return;
     }
     const model = event.target.closest("[data-canvas-model]");
@@ -1964,7 +2253,8 @@ if (canvasPromptInput) {
   });
 }
 
-setCanvasZoom(1);
+setCanvasZoom(1, false);
+loadStudioState();
 
 // Toggle active state on board tabs when clicked
 if (boardTabs) {
@@ -2256,7 +2546,27 @@ function openToolOverlay(toolId) {
       const taskName = currentProjectTitle
         ? `${currentProjectTitle} ${meta.title}`
         : meta.title;
-      addTask(taskName);
+      apiJson("/api/tools/run", {
+        method: "POST",
+        body: JSON.stringify({
+          title: taskName,
+          toolId,
+          toolTitle: meta.title,
+          prompt: userPrompt,
+          model: toolId.startsWith("video") ? "Seedance 2.0" : "gpt-image-2",
+        }),
+      }).then((data) => {
+        if (data?.task) {
+          tasks.unshift(data.task);
+          renderTaskTable();
+          renderStatusGrid();
+        } else {
+          addTask(taskName, {
+            source: "tool",
+            note: toolId.startsWith("video") ? "Seedance 2.0" : "gpt-image-2",
+          });
+        }
+      });
       showToast(`${meta.title} 任务已提交`);
       closeToolOverlay();
     });

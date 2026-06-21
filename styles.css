@@ -1452,6 +1452,10 @@ h2 span {
   color: #f5f6f7;
 }
 
+.canvas-workspace.grid-disabled {
+  background: #030405;
+}
+
 .canvas-topbar {
   position: absolute;
   inset: 0 0 auto;

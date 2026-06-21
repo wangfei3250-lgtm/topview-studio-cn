@@ -51,13 +51,19 @@ topview_mirror_full_package/
 
 ## 本地接口
 
-本地服务提供三个轻量接口：
+本地服务已经包含轻量后端，会把状态保存到 `data/studio-state.json`：
 
-- `POST /api/agent/plan`：按智能体返回执行计划
-- `GET /api/tasks`：读取当前任务队列
-- `POST /api/tasks`：写入一个或多个任务
+- `GET /api/state`：读取项目、任务、画布、Agent 消息和反馈
+- `POST /api/agent/messages`：写入 Agent 对话，并返回执行计划
+- `GET /api/tasks` / `POST /api/tasks` / `PATCH /api/tasks/:id`：管理任务队列
+- `POST /api/projects`：创建首页项目记录
+- `PATCH /api/canvas`：保存画布标题、缩放和设置
+- `POST /api/canvas/nodes` / `PATCH /api/canvas/nodes/:id`：保存画布节点位置、显示状态和 Comfy 状态
+- `GET /api/comfy/status` / `POST /api/comfy/queue`：检测本机 ComfyUI 并创建 Comfy 工作流任务
+- `POST /api/tools/run`：图片、视频、数字人、音频工具提交任务
+- `POST /api/feedback`：保存画布反馈
 
-这些接口用于原型联调，任务数据保存在服务运行时的内存中。
+`data/*.json` 已加入 `.gitignore`，本地测试状态不会提交到仓库。
 
 ## 检查
 
