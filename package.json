@@ -1,0 +1,19 @@
+{
+  "name": "topview-mirror-full-package",
+  "version": "0.1.0",
+  "private": true,
+  "description": "国内版 AI 视频/短剧工作室原型，包含首页、智能体、技能库、画布、短剧工作流和工具弹层。",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js 4177",
+    "check": "node --check app.js && node --check server.js"
+  },
+  "keywords": [
+    "ai-video",
+    "short-drama",
+    "workflow",
+    "prototype"
+  ],
+  "license": "UNLICENSED"
+}

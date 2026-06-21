@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>灵剧工作室 - AI 短剧生成</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="rail" aria-label="主导航">
+        <div class="brand-mark" aria-label="灵剧">灵</div>
+        <button class="rail-item active" data-view="home" data-icon="home"><span>首页</span></button>
+        <button class="rail-item" data-view="agent" data-icon="bot"><span>Agent</span></button>
+        <button class="rail-item" data-view="board" data-icon="layout-dashboard"><span>画布</span></button>
+        <button class="rail-item" data-view="drama" data-icon="clapperboard"><span>短剧工作室</span></button>
+        <button class="rail-item" data-view="workbench" data-icon="briefcase-business"><span>工作台</span></button>
+        <button class="rail-item" data-view="image" data-icon="image"><span>图片</span></button>
+        <button class="rail-item" data-view="video" data-icon="video"><span>视频</span></button>
+        <button class="rail-item" data-view="avatar" data-icon="user-round"><span>数字人</span></button>
+        <button class="rail-item" data-view="audio" data-icon="headphones"><span>音频</span></button>
+        <button class="rail-item" data-view="skill" data-icon="sparkles"><span>技能</span></button>
+        <div class="rail-spacer"></div>
+        <button class="rail-deal">67% OFF</button>
+        <button class="rail-credit" data-icon="sparkle">445.40</button>
+        <button class="rail-avatar">Pro</button>
+      </aside>
+
+      <main class="page">
+        <section class="module-view active" data-view="home">
+          <div class="home-shell">
+            <h1>任意视频，告诉你的 Agent 即可创建</h1>
+
+            <section class="agent-box">
+              <nav class="agent-tabs" aria-label="Agent 模式">
+                <button class="active agent-picker-trigger" id="agentPickerButton" type="button" aria-expanded="true">
+                  视频智能体
+                  <span id="selectedAgentName">Canvas</span>
+                  <i data-icon="chevron-down"></i>
+                </button>
+                <button data-home-target="drama">短剧工作室</button>
+                <button data-home-target="video">AI 视频</button>
+                <button data-home-target="image">AI 图片</button>
+              </nav>
+
+              <div class="version-menu open" id="agentPickerMenu" aria-label="选择视频智能体">
+                <button class="selected" data-agent="canvas">
+                  <strong>Canvas</strong>
+                  <span>适合所有类型的视频</span>
+                </button>
+                <button data-agent="v2">
+                  <strong>V2</strong>
+                  <span>历史旧版本，不推荐使用</span>
+                </button>
+                <button data-agent="v1">
+                  <strong>V1</strong>
+                  <span>历史旧版本，不推荐使用</span>
+                </button>
+              </div>
+
+              <div class="agent-input-area">
+                <div class="agent-profile-card" id="agentProfileCard">
+                  <strong>Canvas</strong>
+                  <p>全能视频智能体，适合从产品、人物、脚本或参考素材生成完整视频方案。</p>
+                </div>
+              </div>
+
+              <div class="agent-box-footer">
+                <button class="square-button" id="newCanvasButton" data-icon="plus" aria-label="新建画布"></button>
+                <button class="skill-button" id="openSkillButton" data-icon="book-open">Skill</button>
+                <div class="agent-selects">
+                  <button id="footerAgentButton"><span id="footerAgentName">Agent</span> <span data-icon="chevron-down"></span></button>
+                  <button id="footerModelButton">Gemini 3.5 Flash <span data-icon="chevron-down"></span></button>
+                  <button class="send-up" id="agentSendButton" data-icon="arrow-up" aria-label="发送给智能体"></button>
+                </div>
+              </div>
+            </section>
+
+            <!-- 快速入口栅格 -->
+            <section class="quick-grid">
+              <article class="quick-card film" data-home-target="skill" data-skill-filter="film" role="button" tabindex="0">
+                <span data-icon="film"></span>
+                <strong>创作短剧</strong>
+                <p>快速生成剧情视频</p>
+              </article>
+              <article class="quick-card product" data-home-target="skill" data-skill-filter="ad" role="button" tabindex="0">
+                <span data-icon="shopping-cart"></span>
+                <strong>营销视频</strong>
+                <p>为产品打造广告</p>
+              </article>
+              <article class="quick-card image" data-home-target="image" role="button" tabindex="0">
+                <span data-icon="image"></span>
+                <strong>图片设计</strong>
+                <p>生成高质量图片</p>
+              </article>
+              <article class="quick-card clone" data-home-target="skill" data-skill-filter="ugc" role="button" tabindex="0">
+                <span data-icon="copy"></span>
+                <strong>视频复刻</strong>
+                <p>模仿爆款结构</p>
+              </article>
+            </section>
+
+            <!-- 迷你项目示例 -->
+            <section class="mini-projects">
+              <div data-home-target="drama" role="button" tabindex="0">
+                <img class="poster" src="https://picsum.photos/seed/mini-drama-a/360/200" alt="迷你短剧项目一" />
+                <strong>都市复仇爽剧</strong>
+                <p>女主卧薪尝胆重回巅峰</p>
+              </div>
+              <div data-home-target="drama" role="button" tabindex="0">
+                <img class="poster" src="https://picsum.photos/seed/mini-drama-b/360/200" alt="迷你短剧项目二" />
+                <strong>校园奇幻恋曲</strong>
+                <p>穿越时空的爱情邂逅</p>
+              </div>
+              <div data-home-target="drama" role="button" tabindex="0">
+                <img class="poster" src="https://picsum.photos/seed/mini-drama-c/360/200" alt="迷你短剧项目三" />
+                <strong>武侠江湖故事</strong>
+                <p>少侠闯荡江湖的冒险</p>
+              </div>
+            </section>
+
+            <nav class="home-subtabs" aria-label="模板类型">
+              <button class="active" data-icon="megaphone" data-template-group="marketing">营销视频</button>
+              <button data-icon="clapperboard" data-template-group="shortfilm">微短片</button>
+              <button data-icon="copy" data-template-group="clone">视频复刻</button>
+              <button data-icon="share-2" data-template-group="social">社媒视频</button>
+              <button data-icon="image" data-template-group="image">图片设计</button>
+            </nav>
+
+            <section class="template-grid">
+              <article class="template-card" role="button" tabindex="0" data-skill="ugc-ads" data-template-group="marketing">
+                <h3>为这款产品创作一条 UGC 广告</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/ugc-product-demo-a/260/170" alt="UGC 产品广告素材一" />
+                  <img src="https://picsum.photos/seed/ugc-product-demo-b/320/190" alt="UGC 产品广告素材二" />
+                  <img src="https://picsum.photos/seed/ugc-product-demo-c/260/170" alt="UGC 产品广告素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="fast-product-demo" data-template-group="marketing">
+                <h3>批量制作 10 条 UGC 带货广告</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/batch-commerce-a/260/170" alt="批量带货广告素材一" />
+                  <img src="https://picsum.photos/seed/batch-commerce-b/320/190" alt="批量带货广告素材二" />
+                  <img src="https://picsum.photos/seed/batch-commerce-c/260/170" alt="批量带货广告素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="product-ad-copy" data-template-group="clone">
+                <h3>复刻这条爆款产品广告</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/viral-product-copy-a/260/170" alt="爆款广告复刻素材一" />
+                  <img src="https://picsum.photos/seed/viral-product-copy-b/320/190" alt="爆款广告复刻素材二" />
+                  <img src="https://picsum.photos/seed/viral-product-copy-c/260/170" alt="爆款广告复刻素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="link-to-video" data-template-group="marketing">
+                <h3>将商品链接制作成宣传视频</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/link-video-a/260/170" alt="商品链接视频素材一" />
+                  <img src="https://picsum.photos/seed/link-video-b/320/190" alt="商品链接视频素材二" />
+                  <img src="https://picsum.photos/seed/link-video-c/260/170" alt="商品链接视频素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="tvc-product-ad" data-template-group="marketing">
+                <h3>制作一条电影感 TVC 品牌广告</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/tvc-watch-a/260/170" alt="TVC 品牌广告素材一" />
+                  <img src="https://picsum.photos/seed/tvc-watch-b/320/190" alt="TVC 品牌广告素材二" />
+                  <img src="https://picsum.photos/seed/tvc-watch-c/260/170" alt="TVC 品牌广告素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="try-on-product-ad" data-template-group="image">
+                <h3>为这套穿搭创作虚拟试穿视频</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/fashion-tryon-a/260/170" alt="虚拟试穿素材一" />
+                  <img src="https://picsum.photos/seed/fashion-tryon-b/320/190" alt="虚拟试穿素材二" />
+                  <img src="https://picsum.photos/seed/fashion-tryon-c/260/170" alt="虚拟试穿素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="restaurant-video" data-template-group="social">
+                <h3>为我的餐厅制作一条介绍视频</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/restaurant-visit-a/260/170" alt="餐厅介绍素材一" />
+                  <img src="https://picsum.photos/seed/restaurant-visit-b/320/190" alt="餐厅介绍素材二" />
+                  <img src="https://picsum.photos/seed/restaurant-visit-c/260/170" alt="餐厅介绍素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="micro-drama-ad" data-template-group="shortfilm">
+                <h3>围绕我的产品讲述创意迷你故事</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/micro-drama-a/260/170" alt="迷你故事素材一" />
+                  <img src="https://picsum.photos/seed/micro-drama-b/320/190" alt="迷你故事素材二" />
+                  <img src="https://picsum.photos/seed/micro-drama-c/260/170" alt="迷你故事素材三" />
+                </div>
+              </article>
+            </section>
+
+            <nav class="category-dock" aria-label="内容类型">
+              <button data-home-target="skill" data-skill-filter="social"><span class="cat-icon pink" data-icon="share-2"></span><strong>Social Content</strong></button>
+              <button data-home-target="video" data-skill-filter="ad"><span class="cat-icon red" data-icon="send"></span><strong>Ad Video</strong></button>
+              <button data-home-target="image" data-skill-filter="ecommerce"><span class="cat-icon amber" data-icon="shopping-cart"></span><strong>Ecommerce</strong></button>
+              <button class="selected" data-home-target="drama" data-skill-filter="film"><span class="cat-icon orange" data-icon="film"></span><strong>Film</strong></button>
+              <button data-home-target="avatar" data-skill-filter="ugc"><span class="cat-icon violet" data-icon="user-round"></span><strong>AI UGC Video</strong></button>
+              <button data-home-target="video" data-skill-filter="explainer"><span class="cat-icon indigo" data-icon="presentation"></span><strong>Explainer Video</strong></button>
+              <button data-home-target="video" data-skill-filter="corporate"><span class="cat-icon blue" data-icon="building-2"></span><strong>Corporate Video</strong></button>
+              <button data-home-target="skill" data-skill-filter="local"><span class="cat-icon green" data-icon="map-pin"></span><strong>Local Services</strong></button>
+              <button data-home-target="skill" data-skill-filter="local"><span class="cat-icon record"></span><strong>Local Picks</strong></button>
+              <button data-home-target="skill" data-skill-filter="tiktok"><span class="cat-icon black">♪</span><strong>TikTok Ad Library</strong></button>
+              <button data-home-target="workbench" data-skill-filter="all"><span class="cat-icon slate" data-icon="grid-2x2"></span><strong>All Tools</strong></button>
+            </nav>
+          </div>
+        </section>
+
+        <section class="module-view" data-view="agent">
+          <div class="agent-layout">
+            <section class="agent-chat">
+              <div class="chat-head"><h1 id="agentChatTitle">Canvas 视频智能体</h1><span id="agentChatVersion">Canvas</span></div>
+              <div class="message assistant" id="agentAssistantMessage">分享一个粗略想法，我会拆成可执行的场景和提示词。</div>
+              <div class="message user">做一条复仇爽剧预告，女主发现婚礼骗局。</div>
+              <div class="plan-card">
+                <strong>执行计划</strong>
+                <ol id="agentPlanSteps">
+                  <li>提炼主线冲突和情绪钩子</li>
+                  <li>规划 6 个镜头和旁白节奏</li>
+                  <li>生成分镜提示词并送入视频队列</li>
+                </ol>
+              </div>
+              <div class="agent-composer"><input placeholder="描述你的视频想法..." /><button data-icon="send-horizontal">发送</button></div>
+            </section>
+            <aside class="asset-panel">
+              <h2>智能体</h2>
+              <div class="agent-library" id="agentLibrary">
+                <button class="selected" data-agent="canvas">
+                  <strong>Canvas</strong>
+                  <span>全流程视频创作</span>
+                </button>
+                <button data-agent="v2">
+                  <strong>V2</strong>
+                  <span>快速短片规划</span>
+                </button>
+                <button data-agent="v1">
+                  <strong>V1</strong>
+                  <span>轻量视频草案</span>
+                </button>
+              </div>
+              <h2>素材</h2>
+              <button class="asset-upload" data-icon="upload-cloud">上传或导入素材</button>
+              <div class="asset-list">
+                <div><span class="asset-thumb a"></span><strong>@Image 1</strong><small>人物参考</small></div>
+                <div><span class="asset-thumb b"></span><strong>@Video 1</strong><small>节奏参考</small></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="module-view" data-view="board">
+          <div class="canvas-workspace">
+            <header class="canvas-topbar">
+              <div class="canvas-title-group">
+                <button class="canvas-logo" id="canvasHomeButton" data-icon="image" aria-label="画布主页"></button>
+                <button class="canvas-title-button" id="canvasTitleButton">《白杀》<span data-icon="chevron-down"></span></button>
+                <button class="canvas-ghost-button" id="canvasSettingsButton" data-icon="settings" aria-label="画布设置"></button>
+              </div>
+              <button class="canvas-play-button" id="canvasPreviewButton" data-icon="play" aria-label="预览"></button>
+              <div class="canvas-top-actions">
+                <button class="canvas-text-link" id="canvasFeedbackButton">反馈</button>
+                <button class="canvas-pill-button" id="canvasTaskButton">任务 <span data-icon="chevron-down"></span></button>
+                <button class="canvas-credit-button" id="canvasCreditButton" data-icon="sparkles">444.5</button>
+                <button class="canvas-pill-button" id="canvasAgentToggle" data-icon="message-square">Agent</button>
+              </div>
+            </header>
+
+            <aside class="canvas-left-tools" aria-label="画布工具">
+              <button class="active" data-canvas-tool="select" data-icon="mouse-pointer-2" aria-label="选择"></button>
+              <button data-canvas-tool="add" data-icon="plus-square" aria-label="添加"></button>
+              <button data-canvas-tool="text" data-icon="type" aria-label="文字"></button>
+              <button data-canvas-tool="image" data-icon="image-plus" aria-label="图片"></button>
+              <button data-canvas-tool="video" data-icon="clapperboard" aria-label="视频"></button>
+              <button data-canvas-tool="audio" data-icon="audio-lines" aria-label="音频"></button>
+              <span></span>
+              <button data-canvas-tool="library" data-icon="archive" aria-label="素材库"></button>
+              <button data-canvas-tool="comfy" data-icon="workflow" aria-label="ComfyUI"></button>
+            </aside>
+
+            <main class="canvas-stage" aria-label="画布工作区">
+              <div class="canvas-node portrait-node selected" data-canvas-node="portrait">
+                <img src="https://picsum.photos/seed/white-suit-character-face/360/480" alt="角色正面头像" />
+              </div>
+              <div class="canvas-node sheet-node" data-canvas-node="sheet">
+                <img src="https://picsum.photos/seed/white-suit-character-sheet/760/430" alt="角色四视图设定" />
+              </div>
+              <div class="canvas-node comfy-node" data-canvas-node="comfy" hidden>
+                <div class="comfy-node-head">
+                  <span data-icon="workflow"></span>
+                  <strong>ComfyUI 工作流</strong>
+                  <small id="comfyNodeStatus">检测中</small>
+                </div>
+                <p>本机地址：127.0.0.1:8188</p>
+                <div class="comfy-node-actions">
+                  <button data-comfy-action="check">检测</button>
+                  <button data-comfy-action="open">打开</button>
+                  <button data-comfy-action="queue">加入任务</button>
+                </div>
+              </div>
+            </main>
+
+            <div class="canvas-floating-panel" id="canvasToolPanel" aria-hidden="true">
+              <div class="canvas-floating-head">
+                <strong id="canvasToolPanelTitle">工具</strong>
+                <button id="canvasToolPanelClose" data-icon="x" aria-label="关闭"></button>
+              </div>
+              <div class="canvas-floating-body" id="canvasToolPanelBody"></div>
+            </div>
+
+            <aside class="canvas-agent-panel" id="canvasAgentPanel">
+              <div class="canvas-panel-toolbar">
+                <button id="canvasPanelMaxButton" data-icon="maximize-2" aria-label="展开 Agent 面板"></button>
+                <button id="canvasPanelClose" data-icon="x"></button>
+              </div>
+              <div class="canvas-zoom-chip">+ 0.8</div>
+
+              <div class="canvas-agent-thread">
+                <div class="canvas-prompt-bubble">
+                  <span>saasnexus-multimodal-ac80bed...</span>
+                  横向16:9构图，4K超清画质，浅灰背景，高级电影角色设计板风格。左侧为人物半身正面大头像，右侧依次为纵向正面全身图、左侧面全身图、背面全身图人物，保持统一。
+                </div>
+
+                <div class="canvas-thinking">思考过程 <span data-icon="chevron-right"></span></div>
+
+                <article class="canvas-result-card">
+                  <div class="canvas-result-head">
+                    <span data-icon="image"></span>
+                    <small>16:9</small>
+                    <span class="canvas-check" data-icon="check-circle-2"></span>
+                    <button data-icon="chevron-up"></button>
+                  </div>
+                  <p><strong>重绘 Source Image</strong> 为高级电影角色设计板风格：横向16:9构图，4K超清画质，浅灰背景。画面左侧为该人物的半身正面大头像，右侧依次为正面、侧面、背面全身图。</p>
+                </article>
+
+                <p class="canvas-panel-note">图像生成任务已自动完成。结果如果满意，可继续生成分镜或进入视频制作。</p>
+              </div>
+
+              <div class="canvas-model-popover open" id="canvasModelPopover">
+                <div class="model-mode-row">
+                  <button class="selected"><strong>Agent</strong><span>对话拆解，逐步完善。</span></button>
+                  <button><strong>Direct Gen</strong><span>根据提示词直接生成图片或视频卡片。</span></button>
+                </div>
+                <div class="model-list-title">AGENT 模型</div>
+                <p>选择驱动 Agent 的模型。</p>
+                <button data-canvas-model="GPT 5.5">GPT 5.5 <small>消耗 6x</small></button>
+                <button data-canvas-model="Claude Opus 4.7">Claude Opus 4.7 <small>消耗 5x</small></button>
+                <button data-canvas-model="Claude Sonnet 4.6">Claude Sonnet 4.6 <small>消耗 3x</small></button>
+                <button class="selected" data-canvas-model="Gemini 3.5 Flash">Gemini 3.5 Flash <small>消耗 2x</small></button>
+                <button data-canvas-model="Qwen 3.7 Max">Qwen 3.7 Max <small>消耗 2x</small></button>
+                <button data-canvas-model="DeepSeek V4 Pro">DeepSeek V4 Pro <small>消耗 2x</small></button>
+                <button data-canvas-model="Gemini 3.1 Flash Lite">Gemini 3.1 Flash Lite <small>消耗 1x</small></button>
+              </div>
+
+              <div class="canvas-composer">
+                <input id="canvasPromptInput" placeholder="描述你的想法，使用 Agent 创建..." />
+                <div>
+                  <button data-icon="plus"></button>
+                  <button data-icon="book-open">技能</button>
+                  <button id="canvasModelButton" data-icon="box">Gemini 3.5 Flash</button>
+                  <button class="send" id="canvasSendButton" data-icon="arrow-up"></button>
+                </div>
+              </div>
+            </aside>
+
+            <div class="canvas-zoom-bar">
+              <button data-canvas-zoom="out" data-icon="minus" aria-label="缩小画布"></button>
+              <strong id="canvasZoomValue">100%</strong>
+              <button data-canvas-zoom="in" data-icon="plus" aria-label="放大画布"></button>
+              <button data-icon="keyboard"></button>
+            </div>
+          </div>
+        </section>
+
+        <section class="module-view" data-view="drama">
+        <section class="hero">
+          <h1>你的 AI 一人短剧工作室</h1>
+
+          <div class="prompt-card">
+            <textarea
+              id="storyInput"
+              placeholder="上传剧本、小说或输入你的故事想法，智能体会为你规划剧本并生成视频。适合制作 5 分钟以上完整剧集。"
+            ></textarea>
+
+            <div class="prompt-actions">
+              <label class="upload-pill" for="fileInput">
+                <span data-icon="upload-cloud"></span>
+                上传剧本 / 小说
+              </label>
+              <input id="fileInput" type="file" accept=".txt,.md,.docx,.pdf" />
+
+              <div class="episode-toggle" role="group" aria-label="剧集模式">
+                <button class="episode-option" data-mode="single">单集</button>
+                <button class="episode-option active" data-mode="series">连续剧</button>
+              </div>
+
+              <button class="writer-menu" id="writerButton" type="button">
+                <span id="writerLabel">专业编剧 3x</span>
+                <span data-icon="chevron-down"></span>
+              </button>
+
+              <button id="generateButton" class="generate-button" disabled>
+                <span data-icon="wand-sparkles"></span>
+                生成
+              </button>
+            </div>
+
+            <div class="writer-popover" id="writerPopover" aria-hidden="true">
+              <button data-tier="premium"><strong>顶级编剧</strong><span>5x · 新创作、复杂剧情</span></button>
+              <button data-tier="standard" class="selected"><strong>专业编剧</strong><span>3x · 改写与优化脚本</span></button>
+              <button data-tier="budget"><strong>助理编剧</strong><span>0.5x · 排版和轻量清理</span></button>
+            </div>
+          </div>
+        </section>
+
+        <section class="project-section">
+          <div class="project-heading">
+            <h2>你的项目 <span id="projectCount">3</span></h2>
+            <button class="sort-button" data-icon="arrow-down-up">按修改时间</button>
+          </div>
+
+          <div id="projectGrid" class="project-grid">
+            <button class="start-card" id="blankProject">
+              <span class="plus">+</span>
+              <strong>从零开始</strong>
+              <small>创建一个新的短剧项目</small>
+            </button>
+
+            <article class="project-card">
+              <div class="poster poster-1"><span>9:16</span></div>
+              <div class="project-copy">
+                <h3>制作要求：请将以下第1集剧本制作成480P竖屏短剧，9:16</h3>
+                <p>2天前</p>
+                <span>1集</span>
+              </div>
+              <button class="more-button" aria-label="更多操作" data-icon="ellipsis"></button>
+            </article>
+
+            <article class="project-card">
+              <div class="poster poster-2"><span>9:16</span></div>
+              <div class="project-copy">
+                <h3>制作要求：请将以下第1集剧本制作成480P竖屏短剧，9:16</h3>
+                <p>2天前</p>
+                <span>0集</span>
+              </div>
+              <button class="more-button" aria-label="更多操作" data-icon="ellipsis"></button>
+            </article>
+
+            <article class="project-card">
+              <div class="poster poster-3"><span>样片</span></div>
+              <div class="project-copy">
+                <h3>Generate directly based on the uploaded story idea</h3>
+                <p>6月11日</p>
+                <span>2集</span>
+              </div>
+              <button class="more-button" aria-label="更多操作" data-icon="ellipsis"></button>
+            </article>
+
+            <article class="sample-card">
+              <div class="poster poster-4"></div>
+              <div>
+                <small>示例项目</small>
+                <strong>Snow of Mak'Gora</strong>
+                <p>点击使用此示例</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- 新增剧情制作工作流区域 -->
+        <section id="workflowSection" class="workflow-section hidden">
+          <!-- Step 0: Assets -->
+          <div id="assetStep" class="workflow-step">
+            <h3>角色与场景资产</h3>
+            <div class="asset-section">
+              <h4>角色列表</h4>
+              <ul id="characterList"></ul>
+              <button id="addCharacterButton" class="generate-button small"><span data-icon="user-plus"></span>添加角色</button>
+            </div>
+            <div class="asset-section">
+              <h4>场景列表</h4>
+              <ul id="sceneList"></ul>
+              <button id="addSceneButton" class="generate-button small"><span data-icon="home"></span>添加场景</button>
+            </div>
+            <button id="nextBeatButton" class="generate-button small"><span data-icon="list"></span>生成剧情节奏</button>
+          </div>
+          <!-- Step 1: Beat Sheet -->
+          <div id="beatSheetStep" class="workflow-step">
+            <h3>剧情节奏（Beat Sheet）</h3>
+            <table class="beat-table">
+              <thead>
+                <tr><th>节拍</th><th>情绪强度</th><th>时长</th></tr>
+              </thead>
+              <tbody id="beatTableBody">
+                <!-- 动态填充 -->
+              </tbody>
+            </table>
+            <button id="nextStoryboardButton" class="generate-button small"><span data-icon="clapperboard"></span>生成故事板</button>
+          </div>
+          <!-- Step 2: Storyboard -->
+          <div id="storyboardStep" class="workflow-step hidden">
+            <h3>故事板</h3>
+            <div id="storyboardGrid" class="storyboard-grid"></div>
+            <button id="nextVoiceoverButton" class="generate-button small"><span data-icon="mic-2"></span>生成配音字幕</button>
+          </div>
+          <!-- Step 3: Voiceover & Captions -->
+          <div id="voiceoverStep" class="workflow-step hidden">
+            <h3>配音和字幕</h3>
+            <div class="voiceover-options">
+              <label>选择声音：
+                <select id="voiceSelect">
+                  <option value="female">女声</option>
+                  <option value="male">男声</option>
+                  <option value="narrator">旁白</option>
+                </select>
+              </label>
+              <label><input type="checkbox" id="captionToggle" checked /> 自动生成字幕</label>
+              <label>背景音乐：
+                <select id="musicSelect">
+                  <option value="none">无</option>
+                  <option value="lyrical">抒情</option>
+                  <option value="energetic">动感</option>
+                  <option value="suspense">悬疑</option>
+                </select>
+              </label>
+            </div>
+            <button id="nextFinalButton" class="generate-button small"><span data-icon="video"></span>生成最终视频</button>
+          </div>
+          <!-- Step 4: Final video -->
+          <div id="finalStep" class="workflow-step hidden">
+            <h3>最终视频</h3>
+            <div class="final-options">
+              <label>分辨率：
+                <select id="resolutionSelect">
+                  <option value="720p">720p</option>
+                  <option value="1080p">1080p</option>
+                </select>
+              </label>
+              <label>画幅比例：
+                <select id="ratioSelect">
+                  <option value="9:16">9:16</option>
+                  <option value="1:1">1:1</option>
+                  <option value="16:9">16:9</option>
+                </select>
+              </label>
+            </div>
+            <button id="generateFinalButton" class="generate-button small"><span data-icon="film"></span>生成导出</button>
+            <div id="finalPreview" class="final-preview hidden">
+              <p>生成完成！点击下方按钮下载最终视频。</p>
+              <button id="downloadFinalButton" class="download-button" data-icon="download">下载视频</button>
+            </div>
+          </div>
+        </section>
+        </section>
+
+        <section class="module-view" data-view="workbench">
+          <div class="module-title"><h1>工作台</h1><button class="sort-button" data-icon="history">任务记录</button></div>
+          <div id="statusGrid" class="status-grid">
+            <div><span>生成中</span><strong>3</strong></div>
+            <div><span>排队中</span><strong>12</strong></div>
+            <div><span>已完成</span><strong>86</strong></div>
+            <div><span>剩余积分</span><strong>445.40</strong></div>
+          </div>
+          <div id="taskTable" class="task-table">
+            <div><span>短剧分镜图</span><strong>生成中</strong><em>约 2 分钟</em></div>
+            <div><span>图生视频 Shot 03</span><strong>排队中</strong><em>Seedance 2.0</em></div>
+            <div><span>数字人口播</span><strong>已完成</strong><em>下载</em></div>
+          </div>
+        </section>
+
+        <section class="module-view" data-view="image">
+          <div class="tool-header"><h1>图片</h1><p>Image tools</p></div>
+          <div class="tool-grid">
+            <article class="tool-card primary" data-tool="prompt-image"><span data-icon="image-plus"></span><strong>文生图</strong><p>Prompt to Image</p></article>
+            <article class="tool-card" data-tool="image-edit"><span data-icon="wand-sparkles"></span><strong>图片编辑</strong><p>Image Edit</p></article>
+            <article class="tool-card" data-tool="image-storyboard"><span data-icon="panels-top-left"></span><strong>故事板</strong><p>Storyboard</p></article>
+            <article class="tool-card" data-tool="image-inpaint"><span data-icon="paintbrush"></span><strong>局部重绘</strong><p>Inpaint</p></article>
+            <article class="tool-card" data-tool="image-char-swap"><span data-icon="user-round-cog"></span><strong>图片角色替换</strong><p>Character Swap</p></article>
+            <article class="tool-card" data-tool="image-face-swap"><span data-icon="scan-face"></span><strong>图片换脸</strong><p>Face Swap</p></article>
+            <article class="tool-card" data-tool="image-upscale"><span data-icon="maximize"></span><strong>图片超分</strong><p>Upscale</p></article>
+            <article class="tool-card" data-tool="image-angle-edit"><span data-icon="camera"></span><strong>照片角度编辑</strong><p>Angle Editor</p></article>
+          </div>
+        </section>
+
+        <section class="module-view" data-view="video">
+          <div class="tool-header"><h1>视频</h1><p>Video tools</p></div>
+          <div class="tool-grid">
+            <article class="tool-card primary" data-tool="video-from-image"><span data-icon="image-play"></span><strong>图生视频</strong><p>Image to Video</p></article>
+            <article class="tool-card" data-tool="video-from-text"><span data-icon="text-cursor-input"></span><strong>文生视频</strong><p>Text to Video</p></article>
+            <article class="tool-card" data-tool="video-omni-reference"><span data-icon="layers-3"></span><strong>全参考</strong><p>Omni Reference</p></article>
+            <article class="tool-card" data-tool="video-char-swap"><span data-icon="user-round-cog"></span><strong>视频角色替换</strong><p>Character Swap</p></article>
+            <article class="tool-card" data-tool="video-upscale"><span data-icon="maximize"></span><strong>视频超分</strong><p>Upscale</p></article>
+            <article class="tool-card" data-tool="video-motion-control"><span data-icon="move-3d"></span><strong>运动控制</strong><p>Motion Control</p></article>
+            <article class="tool-card" data-tool="video-repair"><span data-icon="wrench"></span><strong>视频修复</strong><p>Video Repair</p></article>
+            <article class="tool-card" data-tool="video-watermark-remove"><span data-icon="eraser"></span><strong>去水印字幕</strong><p>Remove Watermark</p></article>
+          </div>
+        </section>
+
+        <section class="module-view" data-view="avatar">
+          <div class="tool-header"><h1>数字人</h1><p>Avatar studio</p></div>
+          <div class="tool-grid">
+            <article class="tool-card primary" data-tool="avatar-ai"><span data-icon="user-round"></span><strong>AI Avatar</strong><p>照片数字人</p></article>
+            <article class="tool-card" data-tool="avatar-product"><span data-icon="shopping-bag"></span><strong>Product Avatar</strong><p>商品数字人</p></article>
+            <article class="tool-card" data-tool="avatar-design"><span data-icon="sparkles"></span><strong>Design My Avatar</strong><p>设计我的头像</p></article>
+            <article class="tool-card" data-tool="avatar-lip-sync"><span data-icon="audio-lines"></span><strong>Video Lip Sync</strong><p>视频口型同步</p></article>
+            <article class="tool-card" data-tool="avatar-virtual-tryon"><span data-icon="shirt"></span><strong>Virtual Try-On</strong><p>虚拟试穿</p></article>
+            <article class="tool-card" data-tool="avatar-face-swap"><span data-icon="scan-face"></span><strong>Face Swap</strong><p>数字人换脸</p></article>
+          </div>
+        </section>
+
+        <section class="module-view" data-view="audio">
+          <div class="tool-header"><h1>音频</h1><p>Audio tools</p></div>
+          <div class="tool-grid">
+            <article class="tool-card primary" data-tool="audio-voiceover"><span data-icon="mic-2"></span><strong>Voiceover</strong><p>智能配音</p></article>
+            <article class="tool-card" data-tool="audio-music"><span data-icon="music-2"></span><strong>AI Music</strong><p>AI 音乐</p></article>
+            <article class="tool-card" data-tool="audio-tts"><span data-icon="file-audio"></span><strong>Text to Speech</strong><p>文本转语音</p></article>
+            <article class="tool-card" data-tool="audio-clone"><span data-icon="copy"></span><strong>Instant Voice Clone</strong><p>即时声音克隆</p></article>
+            <article class="tool-card" data-tool="audio-design"><span data-icon="sliders-horizontal"></span><strong>Voice Design</strong><p>声音设计</p></article>
+          </div>
+        </section>
+
+        <section class="module-view" data-view="skill">
+          <div class="tool-header"><h1>技能</h1><p>Ready-made workflows</p></div>
+          <div class="skill-filter-bar" id="skillFilterBar" aria-label="技能分类">
+            <button class="active" data-skill-filter="all">全部</button>
+            <button data-skill-filter="film">剧情</button>
+            <button data-skill-filter="ad">广告</button>
+            <button data-skill-filter="ecommerce">电商</button>
+            <button data-skill-filter="social">社媒</button>
+            <button data-skill-filter="ugc">UGC</button>
+            <button data-skill-filter="local">本地服务</button>
+            <button data-skill-filter="tiktok">TikTok</button>
+            <button data-skill-filter="image">图片</button>
+          </div>
+          <div class="skill-list" id="skillList"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+    <!-- Board editor overlay -->
+    <div id="boardEditor" class="board-editor hidden" role="dialog" aria-modal="true">
+      <div class="board-editor-content">
+        <button class="close-button" id="closeBoardEditor" data-icon="x" aria-label="关闭"></button>
+        <h2 id="boardEditorTitle">画布名称</h2>
+        <div id="boardEditorGrid" class="storyboard-grid"></div>
+        <button id="exportBoardButton" class="generate-button small"><span data-icon="save"></span>导出画布</button>
+      </div>
+    </div>
+
+    <!-- Tool form overlay -->
+    <div id="toolOverlay" class="tool-overlay hidden" role="dialog" aria-modal="true">
+      <div class="tool-overlay-content">
+        <button class="close-button" id="closeToolOverlay" data-icon="x" aria-label="关闭"></button>
+        <div id="toolOverlayBody"></div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
