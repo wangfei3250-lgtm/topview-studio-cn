@@ -48,13 +48,18 @@ topview_mirror_full_package/
 
 - 图片模型：`gpt-image-2`
 - 视频模型：`Seedance2.0`
+- 后台模型设置：支持 Agent、脚本、图片、视频、音频多个供应商配置；API Key 保存在本地 `data/studio-state.json`，读取接口只返回脱敏状态。
 
 ## 本地接口
 
 本地服务已经包含轻量后端，会把状态保存到 `data/studio-state.json`：
 
 - `GET /api/state`：读取项目、任务、画布、Agent 消息和反馈
-- `POST /api/agent/messages`：写入 Agent 对话，并返回执行计划
+- `GET /api/settings` / `PATCH /api/settings`：读取和设置默认模型路由，接口不会返回原始 API Key
+- `POST /api/settings/models` / `DELETE /api/settings/models/:id`：新增、更新、清空或停用模型供应商配置
+- `GET /api/agents`：读取三个视频智能体和后台模型设置
+- `GET /api/agent/runs` / `POST /api/agent/run`：创建 Agent 运行记录、结构化执行步骤和工作台任务
+- `POST /api/agent/messages`：兼容旧入口，写入 Agent 对话，并返回执行计划和任务
 - `GET /api/tasks` / `POST /api/tasks` / `PATCH /api/tasks/:id`：管理任务队列
 - `POST /api/projects`：创建首页项目记录
 - `POST /api/boards`：创建画布记录

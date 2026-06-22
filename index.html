@@ -71,6 +71,7 @@
                 <div class="agent-selects">
                   <button id="footerAgentButton"><span id="footerAgentName">Agent</span> <span data-icon="chevron-down"></span></button>
                   <button id="footerModelButton">Gemini 3.5 Flash <span data-icon="chevron-down"></span></button>
+                  <button data-open-backend-settings data-icon="settings">后台设置</button>
                   <button class="send-up" id="agentSendButton" data-icon="arrow-up" aria-label="发送给智能体"></button>
                 </div>
               </div>
@@ -224,6 +225,12 @@
                   <li>生成分镜提示词并送入视频队列</li>
                 </ol>
               </div>
+              <div class="agent-run-card">
+                <strong>Agent 运行记录</strong>
+                <div id="agentRunList" class="agent-run-list">
+                  <div class="agent-run-empty">暂无运行记录</div>
+                </div>
+              </div>
               <div class="agent-composer"><input placeholder="描述你的视频想法..." /><button data-icon="send-horizontal">发送</button></div>
             </section>
             <aside class="asset-panel">
@@ -242,6 +249,7 @@
                   <span>轻量视频草案</span>
                 </button>
               </div>
+              <button class="settings-launch-button" data-open-backend-settings data-icon="settings">后台模型设置</button>
               <h2>素材</h2>
               <button class="asset-upload" data-icon="upload-cloud">上传或导入素材</button>
               <div class="asset-list">
@@ -557,7 +565,13 @@
         </section>
 
         <section class="module-view" data-view="workbench">
-          <div class="module-title"><h1>工作台</h1><button class="sort-button" data-icon="history">任务记录</button></div>
+          <div class="module-title">
+            <h1>工作台</h1>
+            <div class="module-actions">
+              <button class="sort-button" data-icon="history">任务记录</button>
+              <button class="sort-button" data-open-backend-settings data-icon="settings">后台设置</button>
+            </div>
+          </div>
           <div id="statusGrid" class="status-grid">
             <div><span>生成中</span><strong>3</strong></div>
             <div><span>排队中</span><strong>12</strong></div>

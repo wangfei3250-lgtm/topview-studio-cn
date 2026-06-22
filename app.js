@@ -32,6 +32,8 @@ const openSkillButton = $("#openSkillButton");
 const footerAgentButton = $("#footerAgentButton");
 const footerModelButton = $("#footerModelButton");
 const agentSendButton = $("#agentSendButton");
+const backendSettingsButtons = $$("[data-open-backend-settings]");
+const agentRunList = $("#agentRunList");
 
 // --- Workflow Pipeline State ---
 // Keep track of the current project title for tasks and pipeline steps
@@ -135,6 +137,11 @@ let canvasSettingsState = {
   model: "Gemini 3.5 Flash",
   mode: "Agent",
 };
+let modelSettingsState = {
+  modelProviders: [],
+  defaultRoles: {},
+};
+let agentRunState = [];
 
 // Keep track of the current board title during editing
 let currentBoardTitle = "";
@@ -885,6 +892,246 @@ function mergeBackendTasks(nextTasks = []) {
   renderStatusGrid();
 }
 
+function roleLabel(role) {
+  const labels = {
+    agent: "Agent",
+    script: "脚本",
+    image: "图片",
+    video: "视频",
+    audio: "音频",
+  };
+  return labels[role] || role || "模型";
+}
+
+function providerStatus(provider) {
+  if (!provider.enabled) return "已停用";
+  return provider.hasKey ? "API 已配置" : "等待 API";
+}
+
+function restoreSettings(settings) {
+  if (!settings) return;
+  modelSettingsState = {
+    modelProviders: Array.isArray(settings.modelProviders) ? settings.modelProviders : [],
+    defaultRoles: settings.defaultRoles || {},
+  };
+  renderCanvasModelChoices();
+}
+
+function renderCanvasModelChoices() {
+  if (!canvasModelPopover) return;
+  const title = canvasModelPopover.querySelector(".model-list-title");
+  const help = title?.nextElementSibling;
+  canvasModelPopover.querySelectorAll("[data-canvas-model]").forEach((button) => button.remove());
+  const agentProviders = modelSettingsState.modelProviders.filter((provider) => provider.role === "agent" && provider.enabled);
+  const fallbackProviders = agentProviders.length
+    ? agentProviders
+    : [
+        { id: "gemini-agent", model: "Gemini 3.5 Flash", cost: "2x", hasKey: false, enabled: true },
+        { id: "qwen-agent", model: "Qwen 3.7 Max", cost: "2x", hasKey: false, enabled: false },
+        { id: "deepseek-agent", model: "DeepSeek V4 Pro", cost: "2x", hasKey: false, enabled: false },
+      ];
+  fallbackProviders.forEach((provider) => {
+    const button = document.createElement("button");
+    button.dataset.canvasModel = provider.model;
+    button.dataset.providerId = provider.id;
+    button.classList.toggle("selected", provider.model === canvasSettingsState.model);
+    button.innerHTML = `${escapeHtml(provider.model)} <small>${provider.hasKey ? "已配置" : provider.cost || "待设置"}</small>`;
+    canvasModelPopover.appendChild(button);
+  });
+  if (help) {
+    help.textContent = agentProviders.length ? "选择驱动 Agent 的模型。API Key 在后台设置里维护。" : "先在后台设置里启用 Agent 模型。";
+  }
+}
+
+function renderAgentRuns(runs = agentRunState) {
+  if (!agentRunList) return;
+  if (!Array.isArray(runs) || !runs.length) {
+    agentRunList.innerHTML = `<div class="agent-run-empty">暂无运行记录</div>`;
+    return;
+  }
+  agentRunList.innerHTML = runs
+    .slice(0, 5)
+    .map(
+      (run) => `
+        <button class="agent-run-item" data-agent-run="${escapeHtml(run.id)}">
+          <span>${escapeHtml(run.agentName || run.agentId || "Agent")}</span>
+          <strong>${escapeHtml(run.title || "Agent 运行")}</strong>
+          <small>${escapeHtml(run.model || "模型")} · ${run.hasKey ? "API 已配置" : "待填 API"}</small>
+        </button>
+      `,
+    )
+    .join("");
+}
+
+function restoreAgentRuns(runs = []) {
+  agentRunState = Array.isArray(runs) ? runs : [];
+  renderAgentRuns();
+}
+
+function providerOptionsHtml(role, selectedId) {
+  return modelSettingsState.modelProviders
+    .filter((provider) => provider.role === role)
+    .map(
+      (provider) =>
+        `<option value="${escapeHtml(provider.id)}" ${provider.id === selectedId ? "selected" : ""}>${escapeHtml(
+          provider.name,
+        )} · ${escapeHtml(provider.model)}</option>`,
+    )
+    .join("");
+}
+
+function settingsRoleSelect(currentRole = "agent") {
+  return ["agent", "script", "image", "video", "audio"]
+    .map((role) => `<option value="${role}" ${role === currentRole ? "selected" : ""}>${roleLabel(role)}</option>`)
+    .join("");
+}
+
+function renderBackendSettings() {
+  const providers = modelSettingsState.modelProviders || [];
+  const defaultRoles = modelSettingsState.defaultRoles || {};
+  toolOverlayBody.innerHTML = `
+    <h2>后台模型设置</h2>
+    <p>这里保留多个模型供应商和 API。Key 只保存在本地后端，页面读取时只显示是否已配置。</p>
+    <div class="settings-default-grid">
+      ${["agent", "image", "video", "audio"]
+        .map(
+          (role) => `
+            <label class="overlay-field">
+              <span>${roleLabel(role)} 默认模型</span>
+              <select data-default-role="${role}">
+                ${providerOptionsHtml(role, defaultRoles[role])}
+              </select>
+            </label>
+          `,
+        )
+        .join("")}
+      <button class="generate-button small" data-settings-default-save>保存默认模型</button>
+    </div>
+    <div class="settings-provider-list">
+      ${providers
+        .map(
+          (provider) => `
+            <article class="settings-provider-card">
+              <div>
+                <strong>${escapeHtml(provider.name)}</strong>
+                <span>${roleLabel(provider.role)} · ${escapeHtml(provider.model)}</span>
+                <small>${escapeHtml(provider.baseUrl || "未填写 Base URL")}</small>
+              </div>
+              <em class="${provider.hasKey ? "ready" : ""}">${providerStatus(provider)}</em>
+              <div class="settings-provider-actions">
+                <button type="button" data-provider-edit="${escapeHtml(provider.id)}">编辑</button>
+                <button type="button" data-provider-clear="${escapeHtml(provider.id)}">清空 Key</button>
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+    <div class="settings-form">
+      <h3>新增 / 编辑模型</h3>
+      <div class="settings-grid">
+        <label class="overlay-field"><span>ID</span><input id="settingsProviderId" placeholder="如 openai-image" /></label>
+        <label class="overlay-field"><span>名称</span><input id="settingsProviderName" placeholder="供应商名称" /></label>
+        <label class="overlay-field"><span>角色</span><select id="settingsProviderRole">${settingsRoleSelect()}</select></label>
+        <label class="overlay-field"><span>模型</span><input id="settingsProviderModel" placeholder="如 gpt-image-2" /></label>
+        <label class="overlay-field wide"><span>Base URL</span><input id="settingsProviderBaseUrl" placeholder="供应商 API 地址，可为空" /></label>
+        <label class="overlay-field wide"><span>API Key</span><input id="settingsProviderApiKey" type="password" autocomplete="off" placeholder="留空则保留原 Key" /></label>
+        <label class="settings-check"><input id="settingsProviderEnabled" type="checkbox" checked /> 启用这个模型</label>
+      </div>
+      <div class="overlay-action-row">
+        <button class="generate-button small" type="button" data-provider-save>保存模型</button>
+        <button class="generate-button small ghost" type="button" data-provider-new>清空表单</button>
+      </div>
+    </div>
+  `;
+  toolOverlay.classList.remove("hidden");
+  hydrateIcons();
+}
+
+async function openBackendSettings() {
+  const data = await apiJson("/api/settings", { cache: "no-store" });
+  if (data?.settings) restoreSettings(data.settings);
+  renderBackendSettings();
+}
+
+function clearProviderForm() {
+  $("#settingsProviderId").value = "";
+  $("#settingsProviderName").value = "";
+  $("#settingsProviderRole").value = "agent";
+  $("#settingsProviderModel").value = "";
+  $("#settingsProviderBaseUrl").value = "";
+  $("#settingsProviderApiKey").value = "";
+  $("#settingsProviderEnabled").checked = true;
+}
+
+function fillProviderForm(providerId) {
+  const provider = modelSettingsState.modelProviders.find((item) => item.id === providerId);
+  if (!provider) return;
+  $("#settingsProviderId").value = provider.id;
+  $("#settingsProviderName").value = provider.name || "";
+  $("#settingsProviderRole").value = provider.role || "agent";
+  $("#settingsProviderModel").value = provider.model || "";
+  $("#settingsProviderBaseUrl").value = provider.baseUrl || "";
+  $("#settingsProviderApiKey").value = "";
+  $("#settingsProviderEnabled").checked = provider.enabled !== false;
+}
+
+async function saveProviderForm(extra = {}) {
+  const payload = {
+    id: $("#settingsProviderId")?.value.trim(),
+    name: $("#settingsProviderName")?.value.trim(),
+    role: $("#settingsProviderRole")?.value || "agent",
+    model: $("#settingsProviderModel")?.value.trim(),
+    baseUrl: $("#settingsProviderBaseUrl")?.value.trim(),
+    apiKey: $("#settingsProviderApiKey")?.value || "",
+    enabled: !!$("#settingsProviderEnabled")?.checked,
+    ...extra,
+  };
+  if (!payload.id || !payload.name || !payload.model) {
+    showToast("请填写模型 ID、名称和模型名");
+    return;
+  }
+  const data = await apiJson("/api/settings/models", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (data?.settings) {
+    restoreSettings(data.settings);
+    renderBackendSettings();
+    showToast("后台模型设置已保存");
+  }
+}
+
+async function saveDefaultRoles() {
+  const defaultRoles = {};
+  $$("[data-default-role]", toolOverlayBody).forEach((select) => {
+    if (select.value) defaultRoles[select.dataset.defaultRole] = select.value;
+  });
+  const data = await apiJson("/api/settings", {
+    method: "PATCH",
+    body: JSON.stringify({ defaultRoles }),
+  });
+  if (data?.settings) {
+    restoreSettings(data.settings);
+    renderBackendSettings();
+    showToast("默认调用模型已更新");
+  }
+}
+
+async function clearProviderKey(providerId) {
+  const provider = modelSettingsState.modelProviders.find((item) => item.id === providerId);
+  if (!provider) return;
+  const data = await apiJson("/api/settings/models", {
+    method: "POST",
+    body: JSON.stringify({ ...provider, clearKey: true }),
+  });
+  if (data?.settings) {
+    restoreSettings(data.settings);
+    renderBackendSettings();
+    showToast("API Key 已清空");
+  }
+}
+
 function canvasNodeState(node) {
   if (!node) return null;
   const type = node.dataset.canvasType || node.dataset.canvasNode || "node";
@@ -1025,6 +1272,8 @@ async function loadStudioState() {
   restoreAssets(data.assets);
   restoreCanvasState(data.canvas);
   restoreAgentMessages(data.agentMessages);
+  restoreSettings(data.settings);
+  restoreAgentRuns(data.agentRuns);
 }
 
 function findTask(taskId) {
@@ -1157,17 +1406,21 @@ async function sendCanvasPrompt() {
     return;
   }
   canvasPromptInput.value = "";
-  const data = await apiJson("/api/agent/messages", {
+  const data = await apiJson("/api/agent/run", {
     method: "POST",
     body: JSON.stringify({
       text,
       agentId: selectedAgent,
       model: canvasModelButton?.textContent?.trim() || "Gemini 3.5 Flash",
+      source: "canvas",
     }),
   });
   appendCanvasThread(text, data?.reply);
-  if (Array.isArray(data?.plan)) addAgentTasks(data.plan, deriveTitle(text));
+  if (Array.isArray(data?.allTasks)) mergeBackendTasks(data.allTasks);
+  else if (Array.isArray(data?.plan)) addAgentTasks(data.plan, deriveTitle(text));
   else addTask(`画布 Agent：${text.slice(0, 18)}`);
+  if (Array.isArray(data?.agentRuns)) restoreAgentRuns(data.agentRuns);
+  if (data?.settings) restoreSettings(data.settings);
   showToast("已发送到画布 Agent");
 }
 
@@ -1703,9 +1956,22 @@ function applySkill(skillId, source = "skill") {
   switchView("agent");
   showToast(source === "home" ? "模板已发送给智能体" : "技能已发送给智能体");
 
-  // When a skill is applied, automatically add the plan steps as workbench tasks.
-  // Use the skill title as the base title for task names.
-  addAgentTasks(run.plan, run.title.slice(0, 10));
+  apiJson("/api/agent/run", {
+    method: "POST",
+    body: JSON.stringify({
+      title: run.title,
+      text: run.prompt,
+      agentId: run.agentId,
+      plan: run.plan,
+      source,
+      skillId,
+    }),
+  }).then((data) => {
+    if (Array.isArray(data?.allTasks)) mergeBackendTasks(data.allTasks);
+    else addAgentTasks(run.plan, run.title.slice(0, 10));
+    if (Array.isArray(data?.agentRuns)) restoreAgentRuns(data.agentRuns);
+    if (data?.settings) restoreSettings(data.settings);
+  });
 }
 
 function openTargetFromHome(button) {
@@ -2137,13 +2403,18 @@ function sendAgentMessage() {
   agentChat.appendChild(userMsg);
   // Determine whether to use the backend API based on the current protocol.
   const useBackend = location.protocol.startsWith("http");
-  const finishChat = (plan, title, replyText = "") => {
+  const finishChat = (plan, title, replyText = "", backend = {}) => {
     // Update the plan card
     if (agentPlanSteps) {
       agentPlanSteps.innerHTML = plan.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
     }
-    // Add tasks to the workbench
-    addAgentTasks(plan, title);
+    if (Array.isArray(backend.allTasks)) {
+      mergeBackendTasks(backend.allTasks);
+    } else {
+      addAgentTasks(plan, title);
+    }
+    if (Array.isArray(backend.agentRuns)) restoreAgentRuns(backend.agentRuns);
+    if (backend.settings) restoreSettings(backend.settings);
     // Compose assistant reply
     const baseReply = agentProfiles[selectedAgent]?.assistant ||
       "已收到您的要求，正在为您规划场景和分镜。";
@@ -2163,14 +2434,14 @@ function sendAgentMessage() {
       text,
       model: agentChatVersion?.textContent?.trim() || agentProfiles[selectedAgent]?.name,
     };
-    apiJson("/api/agent/messages", {
+    apiJson("/api/agent/run", {
       method: "POST",
       body: JSON.stringify(payload),
     })
       .then((data) => {
         const plan = Array.isArray(data?.plan) ? data.plan : [];
         const title = deriveTitle(text);
-        finishChat(plan, title, data?.reply);
+        finishChat(plan, title, data?.reply, data || {});
       })
       .catch((err) => {
         console.error("Failed to fetch plan", err);
@@ -2274,9 +2545,13 @@ openSkillButton.addEventListener("click", () => {
 });
 footerAgentButton.addEventListener("click", () => switchView("agent", "已进入 Agent"));
 footerModelButton.addEventListener("click", () => {
-  showToast(`当前模型：${agentCore.imageModel} + ${agentCore.videoModel}`);
+  openBackendSettings();
 });
 agentSendButton.addEventListener("click", () => applySkill("master-cinematic-technique", "home"));
+
+backendSettingsButtons.forEach((button) => {
+  button.addEventListener("click", openBackendSettings);
+});
 
 skillFilterBar.addEventListener("click", (event) => {
   const option = event.target.closest("button[data-skill-filter]");
@@ -2609,6 +2884,28 @@ if (closeToolOverlayButton) {
 
 if (toolOverlayBody) {
   toolOverlayBody.addEventListener("click", (event) => {
+    const editProviderButton = event.target.closest("[data-provider-edit]");
+    if (editProviderButton) {
+      fillProviderForm(editProviderButton.dataset.providerEdit);
+      return;
+    }
+    const clearProviderButton = event.target.closest("[data-provider-clear]");
+    if (clearProviderButton) {
+      clearProviderKey(clearProviderButton.dataset.providerClear);
+      return;
+    }
+    if (event.target.closest("[data-provider-save]")) {
+      saveProviderForm();
+      return;
+    }
+    if (event.target.closest("[data-provider-new]")) {
+      clearProviderForm();
+      return;
+    }
+    if (event.target.closest("[data-settings-default-save]")) {
+      saveDefaultRoles();
+      return;
+    }
     const taskButton = event.target.closest("[data-task-action]");
     if (taskButton) {
       handleTaskOverlayAction(taskButton);
