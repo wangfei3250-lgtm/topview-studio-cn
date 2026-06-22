@@ -10,12 +10,12 @@
 只需要 **Node.js ≥ 22.5**（内置 `node:sqlite` / `fetch`），不需要 `npm install`：
 
 ```bash
-npm run topview            # 在仓库根目录执行
+npm run factory            # 在仓库根目录执行，独立运行爆款工厂
 # 🛍  工作台      http://localhost:4499
 # 🤖 Agent API   http://localhost:4499/api/agent/v1/openapi.json
 
-npm run topview:smoke      # 32 项全链路冒烟（商品解析 + API + Agent + MCP stdio/HTTP）
-npm run topview:dev        # 开发模式（文件变更自动重启）
+npm run factory:smoke      # 32 项全链路冒烟（商品解析 + API + Agent + MCP stdio/HTTP）
+npm start                  # 同进程挂载到客户原服务：http://localhost:4177/factory/
 ```
 
 **默认本地引擎模式**：不配置任何模型 Key，所有能力（脚本/出图/出片/翻译）自动落到本地规则引擎，

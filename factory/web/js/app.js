@@ -236,7 +236,7 @@ async function viewSettings() {
       <div class="kv"><span>OpenAPI</span><code>${base}/api/agent/v1/openapi.json</code></div>
       <div class="kv"><span>MCP (HTTP)</span><code>${base}/api/agent/v1/mcp</code></div>
       <p class="tip" style="margin-top:10px">Claude Code 接入（stdio）：</p>
-      <code style="display:block;white-space:pre-wrap;padding:10px">claude mcp add topview --env TOPVIEW_TOKEN=${esc(s.agent_token)} -- node $(pwd)/factory/mcp/server.mjs</code>
+      <code style="display:block;white-space:pre-wrap;padding:10px">claude mcp add topview --env TOPVIEW_TOKEN=${esc(s.agent_token)} -- node ./factory/mcp/server.mjs</code>
     </div>`;
 }
 async function saveCfg() {

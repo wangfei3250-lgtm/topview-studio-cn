@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -37,7 +37,7 @@ server.stderr.on('data', (d) => process.env.SMOKE_VERBOSE && console.error(Strin
 try {
   // ---- 单元：商品页 HTML 解析（纯函数，离线） ----
   console.log('\n— 商品解析（单元） —');
-  const { parseProductHtml } = await import(path.join(ROOT, 'server', 'lib', 'commerce.js'));
+  const { parseProductHtml } = await import(pathToFileURL(path.join(ROOT, 'server', 'lib', 'commerce.js')).href);
   const html = `<!doctype html><html><head><title>兜底标题</title>
     <meta property="og:title" content="便携榨汁杯 Pro">
     <meta property="og:image" content="https://example.com/a.jpg">
