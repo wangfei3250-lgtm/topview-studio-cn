@@ -26,7 +26,7 @@ const agentLibrary = $("#agentLibrary");
 const skillList = $("#skillList");
 const skillFilterBar = $("#skillFilterBar");
 const homeSubtabs = $$(".home-subtabs button");
-const templateCards = $$(".template-card[data-skill]");
+const templateCards = $$(".template-card[data-skill], .template-card[data-tool]");
 const categoryButtons = $$(".category-dock button");
 const newCanvasButton = $("#newCanvasButton");
 const openSkillButton = $("#openSkillButton");
@@ -203,6 +203,243 @@ const toolMeta = {
   "audio-tts": { title: "Text to Speech", description: "将文本转换为语音音频" },
   "audio-clone": { title: "Instant Voice Clone", description: "快速克隆并合成声音" },
   "audio-design": { title: "Voice Design", description: "自定义声音设计" },
+  "ai-video-agent": {
+    title: "AI Video Agent",
+    description: "对标 Topview 的 Video Agent Canvas：输入目标，自动选择广告、商品、社媒、短片或图片工作流。",
+    platform: "TikTok / Reels / Shorts",
+    ratio: "9:16",
+    duration: "15s",
+    output: "视频脚本 + 分镜 + 素材任务",
+    defaultPrompt: "帮我把一个商品或创意做成 15 秒竖屏视频，包含强钩子、分镜、字幕和 CTA。",
+    factory: true,
+    kind: "ad",
+    tone: "ugc",
+  },
+  "ai-ads-video": {
+    title: "AI Ads Video",
+    description: "生成 TikTok、Instagram Reels、YouTube Shorts 风格广告，包含钩子、卖点、字幕和平台安全区。",
+    platform: "TikTok Ads / Meta Reels / YouTube Shorts",
+    ratio: "9:16",
+    duration: "15s / 30s / 60s",
+    output: "广告变体 + 平台导出清单",
+    defaultPrompt: "生成一条适合 TikTok 和 Reels 投放的高转化产品广告。",
+    factory: true,
+    kind: "ad",
+    tone: "pain_solution",
+  },
+  "ai-product-video": {
+    title: "AI Product Video",
+    description: "将商品图片、链接或卖点变成产品展示、开箱、教程、详情页视频。",
+    platform: "Amazon / Shopify / 抖店 / 小红书",
+    ratio: "9:16",
+    duration: "15s",
+    output: "商品分镜 + 展示镜头 + 成交理由",
+    defaultPrompt: "把这个商品做成产品视频，突出价格、功能、真实使用场景和成交理由。",
+    factory: true,
+    kind: "ad",
+    tone: "feature_benefit",
+  },
+  "ai-ugc-video": {
+    title: "AI UGC Video",
+    description: "生成达人测评、开箱、使用体验、买家证言、问题-解决方案式 UGC 广告。",
+    platform: "TikTok / Reels / Meta Ads",
+    ratio: "9:16",
+    duration: "15s",
+    output: "UGC 口播脚本 + 数字人/配音任务",
+    defaultPrompt: "用真实买家测评口吻生成一条 UGC 口播广告。",
+    factory: true,
+    kind: "ugc",
+    tone: "review",
+  },
+  "url-to-video": {
+    title: "URL to Video",
+    description: "粘贴商品页、落地页或文章链接，解析标题、图片、卖点并生成视频草稿。",
+    platform: "Amazon / Shopify / 独立站 / 活动页",
+    ratio: "9:16",
+    duration: "15s",
+    output: "链接解析 + 脚本 + 场景 + 字幕",
+    defaultPrompt: "粘贴一个公开商品链接，自动生成广告脚本、分镜和字幕。",
+    factory: true,
+    kind: "ad",
+    tone: "ugc",
+  },
+  "ai-avatar-generator": {
+    title: "AI Avatar Generator",
+    description: "选择人设、年龄、性别、语言、口吻和服装，生成可复用数字人。",
+    platform: "Avatar / Talking Head",
+    ratio: "9:16",
+    duration: "15s",
+    output: "数字人设定 + 口播任务",
+    defaultPrompt: "创建一个适合电商测评的中文数字人主播。",
+  },
+  "product-avatar": {
+    title: "Product Avatar",
+    description: "数字人与商品同框演示，控制商品位置、手持动作、展示角度和讲解节奏。",
+    platform: "Product Avatar",
+    ratio: "9:16",
+    duration: "15s",
+    output: "数字人商品演示分镜",
+    defaultPrompt: "让数字人自然手持并展示这款商品，完成 15 秒讲解。",
+    factory: true,
+    kind: "ugc",
+    tone: "demo",
+  },
+  "design-my-avatar": {
+    title: "Design My Avatar",
+    description: "从品牌定位出发设计专属数字人，包括外观、声音、性格和镜头风格。",
+    platform: "Avatar Brand Kit",
+    ratio: "9:16",
+    duration: "15s",
+    output: "数字人角色卡 + 视觉设定",
+    defaultPrompt: "为我的品牌设计一个亲和力强、适合带货口播的数字人。",
+  },
+  "ai-lip-sync": {
+    title: "AI Lip-sync",
+    description: "为真人/数字人口播视频生成多语言配音和准确口型同步。",
+    platform: "Multilingual Lip-sync",
+    ratio: "9:16",
+    duration: "15s",
+    output: "配音 + 字幕 + 口型同步任务",
+    defaultPrompt: "把这段中文口播本地化成英文和日文，并保持口型同步。",
+  },
+  "ai-video-generator": {
+    title: "AI Video Generator",
+    description: "文生视频、图生视频、参考图生成视频，并支持比例、时长、镜头运动。",
+    platform: "Seedance / Kling / Sora / Veo",
+    ratio: "16:9 / 9:16 / 1:1",
+    duration: "5s / 10s / 15s",
+    output: "视频生成任务",
+    defaultPrompt: "生成一段电影感产品展示视频，镜头平滑推进，真实光影。",
+  },
+  "ai-short-video": {
+    title: "AI Short Video",
+    description: "生成短视频脚本、镜头拆分、字幕节奏和发布标题。",
+    platform: "Shorts / Reels / 抖音 / 快手",
+    ratio: "9:16",
+    duration: "15s / 30s",
+    output: "短视频脚本 + 生成任务",
+    defaultPrompt: "为这个主题生成 30 秒短视频，前 3 秒必须抓人。",
+  },
+  "storyboard-to-video": {
+    title: "Storyboard to Video",
+    description: "用故事板控制镜头连续性，逐镜生成画面和视频，减少盲抽 token。",
+    platform: "Storyboard",
+    ratio: "16:9 / 9:16",
+    duration: "分镜控制",
+    output: "故事板 + 逐镜视频任务",
+    defaultPrompt: "把这个脚本拆成 6 个故事板镜头并生成视频。",
+  },
+  "video-clone": {
+    title: "Video Clone",
+    description: "分析参考视频的节奏、镜头、字幕、CTA 和结构，用新产品复刻。",
+    platform: "Replica Engine",
+    ratio: "9:16",
+    duration: "15s",
+    output: "参考拆解 + 复刻任务",
+    defaultPrompt: "复刻这条爆款广告的结构，但替换成我的产品。",
+    factory: true,
+    kind: "ad",
+    tone: "viral_clone",
+  },
+  "ai-product-photo": {
+    title: "AI Product Photo",
+    description: "生成商品棚拍、生活方式图、详情图和广告主视觉。",
+    platform: "Product Photo",
+    ratio: "1:1 / 4:5 / 16:9",
+    duration: "图片",
+    output: "商品图生成任务",
+    defaultPrompt: "为这个商品生成一组高端电商主图和生活方式场景图。",
+  },
+  "ai-product-shoot": {
+    title: "AI Product Shoots",
+    description: "将平面商品图放入真实光影场景，生成棚拍质感与品牌背景。",
+    platform: "Commercial Product Shoot",
+    ratio: "1:1 / 4:5",
+    duration: "图片",
+    output: "商品棚拍任务",
+    defaultPrompt: "把这张商品图做成真实棚拍效果，突出材质、反光和高级背景。",
+  },
+  "ai-effects": {
+    title: "AI Effects",
+    description: "为图片或视频添加转场、变形、运动特效、Meme 效果和风格化包装。",
+    platform: "Effects",
+    ratio: "9:16",
+    duration: "5s / 15s",
+    output: "特效视频任务",
+    defaultPrompt: "给这段产品视频加一个吸睛 AI 转场和结尾 CTA。",
+  },
+  "virtual-tryon": {
+    title: "Virtual Try-On",
+    description: "服装、配饰、美妆产品虚拟试穿，生成多角度模特展示。",
+    platform: "Fashion / Beauty",
+    ratio: "9:16 / 4:5",
+    duration: "图片或视频",
+    output: "试穿生成任务",
+    defaultPrompt: "让模特试穿这件商品，生成 3 个角度的展示素材。",
+  },
+  "advertising-case": {
+    title: "Advertising",
+    description: "为广告投放生成素材策略、平台规格、变体计划和导出清单。",
+    platform: "Google / Meta / TikTok / YouTube",
+    ratio: "多平台",
+    duration: "15s / 30s / 60s",
+    output: "投放素材包",
+    defaultPrompt: "为这个产品制定一组广告素材：3 个钩子、3 个卖点、3 个 CTA。",
+  },
+  "affiliate-case": {
+    title: "Affiliate Marketing",
+    description: "为联盟营销生成达人口播、商品脚本、优惠点和批量素材变体。",
+    platform: "Affiliate / Native Ads",
+    ratio: "9:16",
+    duration: "15s",
+    output: "联盟素材变体",
+    defaultPrompt: "为联盟投放生成 10 条不同角度的短视频广告脚本。",
+    factory: true,
+    kind: "ugc",
+    tone: "review",
+  },
+  "ecommerce-case": {
+    title: "Ecommerce",
+    description: "针对 Amazon、Shopify、抖店和独立站生成商品视频、详情页视频和 SKU 扩量素材。",
+    platform: "Amazon / Shopify / 抖店",
+    ratio: "9:16 / 1:1 / 4:5",
+    duration: "15s",
+    output: "电商商品视频任务",
+    defaultPrompt: "把这个 SKU 做成电商详情页视频和信息流广告。",
+    factory: true,
+    kind: "ad",
+    tone: "feature_benefit",
+  },
+  "dtc-case": {
+    title: "DTC Brands",
+    description: "保持品牌字体、颜色、Logo 和视觉调性一致，批量生成 DTC 品牌素材。",
+    platform: "DTC / Brand Kit",
+    ratio: "多平台",
+    duration: "15s / 30s",
+    output: "品牌素材任务",
+    defaultPrompt: "为 DTC 品牌生成一组统一视觉风格的商品广告。",
+  },
+  "ai-live-stream": {
+    title: "AI Live Stream",
+    description: "生成直播脚本、数字人口播、卖点循环、切片标题和直播间成交话术。",
+    platform: "Live Commerce",
+    ratio: "9:16",
+    duration: "直播切片",
+    output: "直播脚本 + 切片任务",
+    defaultPrompt: "为这款商品生成直播带货脚本和 5 条短视频切片。",
+    factory: true,
+    kind: "ugc",
+    tone: "live",
+  },
+  "tiktok-ad-library": {
+    title: "TikTok Ad Library",
+    description: "拆解 TikTok 爆款广告：钩子、镜头、节奏、字幕、评论诱因和 CTA。",
+    platform: "TikTok Ad Library",
+    ratio: "研究",
+    duration: "分析",
+    output: "爆款结构报告 + 复刻任务",
+    defaultPrompt: "分析一条 TikTok 爆款广告结构，并生成可复刻脚本。",
+  },
 };
 
 // --- Workbench Task State ---
@@ -1883,6 +2120,24 @@ function buildFactoryLaunchRoute() {
   return params.toString() ? `/factory/?${params.toString()}#/` : "/factory/#/";
 }
 
+function buildFactoryRouteFromPrompt(prompt = "", meta = {}) {
+  const text = prompt.trim() || meta.defaultPrompt || "";
+  const params = new URLSearchParams();
+  const urlMatch = text.match(/https?:\/\/[^\s，。；;]+/i);
+  if (urlMatch) {
+    params.set("url", urlMatch[0]);
+  } else if (text) {
+    params.set("mode", "manual");
+    params.set("title", text.slice(0, 60));
+    params.set("points", text);
+  }
+  if (meta.kind) params.set("kind", meta.kind);
+  if (meta.tone) params.set("tone", meta.tone);
+  if (meta.ratio?.includes("9:16")) params.set("ratio", "9:16");
+  params.set("source", meta.title || "Topview Tool");
+  return params.toString() ? `/factory/?${params.toString()}#/` : "/factory/#/";
+}
+
 function setCanvasZoom(nextZoom, shouldPersist = true) {
   const numericZoom = Number(nextZoom);
   if (!Number.isFinite(numericZoom)) return;
@@ -2509,12 +2764,12 @@ function filterSkillCatalog(filter = "all") {
   });
 }
 
-function setTemplateGroup(group) {
+function setTemplateGroup(group, notify = true) {
   homeSubtabs.forEach((button) => button.classList.toggle("active", button.dataset.templateGroup === group));
   templateCards.forEach((card) => {
     card.classList.toggle("hidden", card.dataset.templateGroup !== group);
   });
-  showToast(`已切换到${groupLabel(group)}模板`);
+  if (notify) showToast(`已切换到${groupLabel(group)}模板`);
 }
 
 function groupLabel(group) {
@@ -2524,6 +2779,15 @@ function groupLabel(group) {
     clone: "视频复刻",
     social: "社媒视频",
     image: "图片设计",
+    "whats-new": "What's New",
+    trending: "Trending",
+    "viral-hook": "Viral Hook",
+    shoppable: "Shoppable Video",
+    effects: "AI Effects",
+    meme: "Meme",
+    pov: "POV & Roleplay",
+    reaction: "Reaction",
+    storytelling: "Storytelling",
   };
   return labels[group] || "全部";
 }
@@ -3195,6 +3459,10 @@ templateCards.forEach((card) => {
       switchView("factory", "爆款工厂已打开");
       return;
     }
+    if (card.dataset.tool) {
+      openToolOverlay(card.dataset.tool);
+      return;
+    }
     applySkill(card.dataset.skill, "home");
   };
   card.addEventListener("click", useTemplate);
@@ -3397,6 +3665,7 @@ $$(".quick-card[data-home-target], .mini-projects div[data-home-target]").forEac
 
 renderSkillCatalog();
 filterSkillCatalog("all");
+setTemplateGroup("whats-new", false);
 hydrateIcons();
 refreshProjectCount();
 refreshGenerateState();
@@ -3608,6 +3877,10 @@ if (closeToolOverlayButton) {
 
 if (toolOverlayBody) {
   toolOverlayBody.addEventListener("click", (event) => {
+    if (event.target.closest("[data-tool-overlay-close]")) {
+      closeToolOverlay();
+      return;
+    }
     const editProviderButton = event.target.closest("[data-provider-edit]");
     if (editProviderButton) {
       fillProviderForm(editProviderButton.dataset.providerEdit);
@@ -3973,58 +4246,159 @@ function closeBoardEditor() {
  */
 function openToolOverlay(toolId) {
   const meta = toolMeta[toolId] || { title: "AI 工具", description: "请描述你的需求" };
-  // Build the form markup
   toolOverlayBody.innerHTML = `
-    <h2>${escapeHtml(meta.title)}</h2>
-    <p>${escapeHtml(meta.description)}</p>
-    <textarea id="toolPrompt" rows="3" placeholder="请输入你的描述..."></textarea>
-    <button id="submitToolButton" class="generate-button small"><span data-icon="send"></span>生成任务</button>
+    <div class="topview-tool-head">
+      <div>
+        <span>Topview-style tool</span>
+        <h2>${escapeHtml(meta.title)}</h2>
+        <p>${escapeHtml(meta.description)}</p>
+      </div>
+      <button class="sort-button" data-tool-overlay-close type="button">关闭</button>
+    </div>
+    <div class="topview-tool-summary">
+      <div><span>平台</span><strong>${escapeHtml(meta.platform || "通用")}</strong></div>
+      <div><span>画幅</span><strong>${escapeHtml(meta.ratio || "9:16")}</strong></div>
+      <div><span>时长</span><strong>${escapeHtml(meta.duration || "15s")}</strong></div>
+      <div><span>输出</span><strong>${escapeHtml(meta.output || "生成任务")}</strong></div>
+    </div>
+    <label class="overlay-field">
+      <span>Reference / URL / Prompt</span>
+      <textarea id="toolPrompt" rows="4" placeholder="粘贴商品链接、参考广告链接，或描述你要生成的视频...">${escapeHtml(meta.defaultPrompt || "")}</textarea>
+    </label>
+    <div class="overlay-field">
+      <span>参考素材</span>
+      <input id="toolReference" type="file" multiple />
+      <small>支持商品图、参考视频、Logo、字幕脚本；原型中会生成对应任务占位。</small>
+    </div>
+    <div class="tool-option-grid">
+      <label class="overlay-field">
+        <span>投放平台</span>
+        <select id="toolPlatform">
+          <option>TikTok</option>
+          <option>Instagram Reels</option>
+          <option>YouTube Shorts</option>
+          <option>Amazon</option>
+          <option>Shopify</option>
+          <option>小红书</option>
+          <option>抖音</option>
+        </select>
+      </label>
+      <label class="overlay-field">
+        <span>画幅</span>
+        <select id="toolRatio">
+          <option>9:16</option>
+          <option>16:9</option>
+          <option>1:1</option>
+          <option>4:5</option>
+        </select>
+      </label>
+      <label class="overlay-field">
+        <span>时长</span>
+        <select id="toolDuration">
+          <option>15s</option>
+          <option>30s</option>
+          <option>60s</option>
+          <option>1-5 min</option>
+        </select>
+      </label>
+      <label class="overlay-field">
+        <span>变体数量</span>
+        <select id="toolVariants">
+          <option>3</option>
+          <option>5</option>
+          <option>10</option>
+          <option>20</option>
+        </select>
+      </label>
+    </div>
+    <div class="tool-brand-kit">
+      <label class="overlay-field"><span>品牌名</span><input id="toolBrand" placeholder="可选" /></label>
+      <label class="overlay-field"><span>主色</span><input id="toolColor" placeholder="#23D8A2 / 品牌色" /></label>
+      <label class="overlay-field"><span>CTA</span><input id="toolCta" placeholder="立即购买 / 了解更多 / 领取优惠" /></label>
+    </div>
+    <div class="tool-pipeline">
+      <span>1. Analyze</span>
+      <span>2. Script</span>
+      <span>3. Storyboard</span>
+      <span>4. Generate</span>
+      <span>5. Export</span>
+    </div>
+    <div class="tool-export-row">
+      <label><input type="checkbox" checked /> 自动字幕</label>
+      <label><input type="checkbox" checked /> 安全区适配</label>
+      <label><input type="checkbox" checked /> 多语言版本</label>
+      <label><input type="checkbox" /> 直接发布草稿</label>
+    </div>
+    <div class="tool-overlay-actions">
+      <button id="submitToolButton" class="generate-button small"><span data-icon="send"></span>生成任务</button>
+      ${meta.factory ? '<button id="sendFactoryButton" class="generate-button small secondary" type="button"><span data-icon="shopping-cart"></span>发送到爆款工厂</button>' : ""}
+    </div>
   `;
   toolOverlay.classList.remove("hidden");
   hydrateIcons();
-  // Attach click handler for form submission
-  const submitBtn = document.getElementById("submitToolButton");
-  if (submitBtn) {
-    submitBtn.addEventListener("click", () => {
-      const promptInput = document.getElementById("toolPrompt");
-      const userPrompt = promptInput ? promptInput.value.trim() : "";
-      // Create a task name. If there's a current project, prefix it.
+  const submitTool = (openFactory = false) => {
+    const promptInput = document.getElementById("toolPrompt");
+    const userPrompt = promptInput ? promptInput.value.trim() : "";
+    const referenceInput = document.getElementById("toolReference");
+    const referenceCount = referenceInput?.files?.length || 0;
+    const platform = document.getElementById("toolPlatform")?.value || "";
+    const ratio = document.getElementById("toolRatio")?.value || "";
+    const duration = document.getElementById("toolDuration")?.value || "";
+    const variants = document.getElementById("toolVariants")?.value || "";
+    const brand = document.getElementById("toolBrand")?.value.trim() || "";
+    const color = document.getElementById("toolColor")?.value.trim() || "";
+    const cta = document.getElementById("toolCta")?.value.trim() || "";
       const taskName = currentProjectTitle
         ? `${currentProjectTitle} ${meta.title}`
         : meta.title;
-      const kind = toolId.startsWith("video") ? "video" : toolId.startsWith("audio") ? "audio" : "image";
-      apiJson("/api/generate", {
-        method: "POST",
-        body: JSON.stringify({
-          kind,
-          title: taskName,
-          taskTitle: taskName,
-          toolId,
-          toolTitle: meta.title,
-          prompt: userPrompt,
-          source: "tool",
-          productionId: currentProduction?.id || "",
-        }),
-      }).then((data) => {
-        if (data?.task) {
-          if (Array.isArray(data.allTasks)) mergeBackendTasks(data.allTasks);
-          else {
-            tasks.unshift(data.task);
-            renderTaskTable();
-            renderStatusGrid();
-          }
-          if (Array.isArray(data.outputs)) currentOutputs = data.outputs;
-        } else {
-          addTask(taskName, {
-            source: "tool",
-            note: toolId.startsWith("video") ? "Seedance 2.0" : "gpt-image-2",
-          });
+    const kind = toolId.startsWith("audio") ? "audio" : toolId.includes("image") || toolId.includes("photo") || toolId.includes("shoot") ? "image" : "video";
+    apiJson("/api/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        kind,
+        title: taskName,
+        taskTitle: taskName,
+        toolId,
+        toolTitle: meta.title,
+        prompt: userPrompt,
+        source: "topview-tool",
+        platform,
+        ratio,
+        duration,
+        variants,
+        brand,
+        color,
+        cta,
+        referenceCount,
+        productionId: currentProduction?.id || "",
+      }),
+    }).then((data) => {
+      if (data?.task) {
+        if (Array.isArray(data.allTasks)) mergeBackendTasks(data.allTasks);
+        else {
+          tasks.unshift(data.task);
+          renderTaskTable();
+          renderStatusGrid();
         }
-      });
-      showToast(`${meta.title} 任务已提交`);
-      closeToolOverlay();
+        if (Array.isArray(data.outputs)) currentOutputs = data.outputs;
+      } else {
+        addTask(taskName, {
+          source: "topview-tool",
+          note: `${platform || meta.platform || "Topview"} · ${ratio || meta.ratio || "9:16"} · ${variants || "3"} variants`,
+        });
+      }
     });
-  }
+    if (openFactory && meta.factory) {
+      const nextPrompt = [userPrompt || meta.defaultPrompt, brand && `品牌：${brand}`, cta && `CTA：${cta}`].filter(Boolean).join("\n");
+      setFactoryPrompt(nextPrompt);
+      setFactoryFrameRoute(buildFactoryRouteFromPrompt(nextPrompt, meta), "已发送到爆款工厂");
+    } else {
+      switchView("workbench", `${meta.title} 任务已提交`);
+    }
+    closeToolOverlay();
+  };
+  document.getElementById("submitToolButton")?.addEventListener("click", () => submitTool(false));
+  document.getElementById("sendFactoryButton")?.addEventListener("click", () => submitTool(true));
 }
 
 /**

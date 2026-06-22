@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>灵剧工作室 - AI 短剧生成</title>
-    <link rel="stylesheet" href="./styles.css?v=factory-subfeature4" />
+    <link rel="stylesheet" href="./styles.css?v=factory-parity2" />
   </head>
   <body>
     <div class="app-shell">
@@ -15,6 +15,7 @@
         <button class="rail-item" data-view="board" data-icon="layout-dashboard"><span>画布</span></button>
         <button class="rail-item" data-view="drama" data-icon="clapperboard"><span>短剧工作室</span></button>
         <button class="rail-item" data-view="factory" data-icon="shopping-cart"><span>爆款工厂</span></button>
+        <button class="rail-item" data-view="tools" data-icon="grid-2x2"><span>工具</span></button>
         <button class="rail-item" data-view="workbench" data-icon="briefcase-business"><span>工作台</span></button>
         <button class="rail-item" data-view="image" data-icon="image"><span>图片</span></button>
         <button class="rail-item" data-view="video" data-icon="video"><span>视频</span></button>
@@ -43,6 +44,7 @@
                 <button data-home-target="factory">爆款工厂</button>
                 <button data-home-target="video">AI 视频</button>
                 <button data-home-target="image">AI 图片</button>
+                <button data-home-target="tools">All Tools</button>
               </nav>
 
               <div class="version-menu open" id="agentPickerMenu" aria-label="选择视频智能体">
@@ -123,15 +125,19 @@
             </section>
 
             <nav class="home-subtabs" aria-label="模板类型">
-              <button class="active" data-icon="megaphone" data-template-group="marketing">营销视频</button>
-              <button data-icon="clapperboard" data-template-group="shortfilm">微短片</button>
-              <button data-icon="copy" data-template-group="clone">视频复刻</button>
-              <button data-icon="share-2" data-template-group="social">社媒视频</button>
-              <button data-icon="image" data-template-group="image">图片设计</button>
+              <button class="active" data-icon="sparkles" data-template-group="whats-new">What's New</button>
+              <button data-icon="flame" data-template-group="trending">Trending</button>
+              <button data-icon="megaphone" data-template-group="viral-hook">Viral Hook</button>
+              <button data-icon="shopping-bag" data-template-group="shoppable">Shoppable Video</button>
+              <button data-icon="wand-sparkles" data-template-group="effects">AI Effects</button>
+              <button data-icon="laugh" data-template-group="meme">Meme</button>
+              <button data-icon="user-round" data-template-group="pov">POV & Roleplay</button>
+              <button data-icon="message-circle" data-template-group="reaction">Reaction</button>
+              <button data-icon="book-open" data-template-group="storytelling">Storytelling</button>
             </nav>
 
             <section class="template-grid">
-              <article class="template-card" role="button" tabindex="0" data-skill="ugc-ads" data-factory-entry="true" data-template-group="marketing">
+              <article class="template-card" role="button" tabindex="0" data-skill="ugc-ads" data-factory-entry="true" data-template-group="whats-new">
                 <h3>为这款产品创作一条 UGC 广告</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/ugc-product-demo-a/260/170" alt="UGC 产品广告素材一" />
@@ -139,7 +145,7 @@
                   <img src="https://picsum.photos/seed/ugc-product-demo-c/260/170" alt="UGC 产品广告素材三" />
                 </div>
               </article>
-              <article class="template-card" role="button" tabindex="0" data-skill="fast-product-demo" data-factory-entry="true" data-template-group="marketing">
+              <article class="template-card" role="button" tabindex="0" data-skill="fast-product-demo" data-factory-entry="true" data-template-group="shoppable">
                 <h3>批量制作 10 条 UGC 带货广告</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/batch-commerce-a/260/170" alt="批量带货广告素材一" />
@@ -147,7 +153,7 @@
                   <img src="https://picsum.photos/seed/batch-commerce-c/260/170" alt="批量带货广告素材三" />
                 </div>
               </article>
-              <article class="template-card" role="button" tabindex="0" data-skill="product-ad-copy" data-template-group="clone">
+              <article class="template-card" role="button" tabindex="0" data-skill="product-ad-copy" data-template-group="trending">
                 <h3>复刻这条爆款产品广告</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/viral-product-copy-a/260/170" alt="爆款广告复刻素材一" />
@@ -155,7 +161,7 @@
                   <img src="https://picsum.photos/seed/viral-product-copy-c/260/170" alt="爆款广告复刻素材三" />
                 </div>
               </article>
-              <article class="template-card" role="button" tabindex="0" data-skill="link-to-video" data-factory-entry="true" data-template-group="marketing">
+              <article class="template-card" role="button" tabindex="0" data-skill="link-to-video" data-factory-entry="true" data-template-group="shoppable">
                 <h3>将商品链接制作成宣传视频</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/link-video-a/260/170" alt="商品链接视频素材一" />
@@ -163,7 +169,7 @@
                   <img src="https://picsum.photos/seed/link-video-c/260/170" alt="商品链接视频素材三" />
                 </div>
               </article>
-              <article class="template-card" role="button" tabindex="0" data-skill="tvc-product-ad" data-template-group="marketing">
+              <article class="template-card" role="button" tabindex="0" data-skill="tvc-product-ad" data-template-group="storytelling">
                 <h3>制作一条电影感 TVC 品牌广告</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/tvc-watch-a/260/170" alt="TVC 品牌广告素材一" />
@@ -171,7 +177,7 @@
                   <img src="https://picsum.photos/seed/tvc-watch-c/260/170" alt="TVC 品牌广告素材三" />
                 </div>
               </article>
-              <article class="template-card" role="button" tabindex="0" data-skill="try-on-product-ad" data-template-group="image">
+              <article class="template-card" role="button" tabindex="0" data-skill="try-on-product-ad" data-template-group="effects">
                 <h3>为这套穿搭创作虚拟试穿视频</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/fashion-tryon-a/260/170" alt="虚拟试穿素材一" />
@@ -179,7 +185,7 @@
                   <img src="https://picsum.photos/seed/fashion-tryon-c/260/170" alt="虚拟试穿素材三" />
                 </div>
               </article>
-              <article class="template-card" role="button" tabindex="0" data-skill="restaurant-video" data-template-group="social">
+              <article class="template-card" role="button" tabindex="0" data-skill="restaurant-video" data-template-group="reaction">
                 <h3>为我的餐厅制作一条介绍视频</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/restaurant-visit-a/260/170" alt="餐厅介绍素材一" />
@@ -187,12 +193,52 @@
                   <img src="https://picsum.photos/seed/restaurant-visit-c/260/170" alt="餐厅介绍素材三" />
                 </div>
               </article>
-              <article class="template-card" role="button" tabindex="0" data-skill="micro-drama-ad" data-template-group="shortfilm">
+              <article class="template-card" role="button" tabindex="0" data-skill="micro-drama-ad" data-template-group="storytelling">
                 <h3>围绕我的产品讲述创意迷你故事</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/micro-drama-a/260/170" alt="迷你故事素材一" />
                   <img src="https://picsum.photos/seed/micro-drama-b/320/190" alt="迷你故事素材二" />
                   <img src="https://picsum.photos/seed/micro-drama-c/260/170" alt="迷你故事素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="before-after-product-ad" data-template-group="viral-hook">
+                <h3>3 秒强钩子：使用前后反差广告</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/viral-hook-before-a/260/170" alt="强钩子模板素材一" />
+                  <img src="https://picsum.photos/seed/viral-hook-before-b/320/190" alt="强钩子模板素材二" />
+                  <img src="https://picsum.photos/seed/viral-hook-before-c/260/170" alt="强钩子模板素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-tool="ai-effects" data-template-group="effects">
+                <h3>给产品视频添加 AI 特效转场</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/ai-effect-a/260/170" alt="AI 特效模板素材一" />
+                  <img src="https://picsum.photos/seed/ai-effect-b/320/190" alt="AI 特效模板素材二" />
+                  <img src="https://picsum.photos/seed/ai-effect-c/260/170" alt="AI 特效模板素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="social-argument-twist" data-template-group="meme">
+                <h3>做一条带梗反转的 Meme 短视频</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/meme-reaction-a/260/170" alt="Meme 模板素材一" />
+                  <img src="https://picsum.photos/seed/meme-reaction-b/320/190" alt="Meme 模板素材二" />
+                  <img src="https://picsum.photos/seed/meme-reaction-c/260/170" alt="Meme 模板素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="pov-walk-talk-product-ad" data-template-group="pov">
+                <h3>POV 走拍口播：边走边种草</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/pov-walk-a/260/170" alt="POV 模板素材一" />
+                  <img src="https://picsum.photos/seed/pov-walk-b/320/190" alt="POV 模板素材二" />
+                  <img src="https://picsum.photos/seed/pov-walk-c/260/170" alt="POV 模板素材三" />
+                </div>
+              </article>
+              <article class="template-card" role="button" tabindex="0" data-skill="review-testimonial-product-ad" data-template-group="reaction">
+                <h3>Reaction 评价：看到效果后的真实反应</h3>
+                <div class="template-strip">
+                  <img src="https://picsum.photos/seed/reaction-review-a/260/170" alt="Reaction 模板素材一" />
+                  <img src="https://picsum.photos/seed/reaction-review-b/320/190" alt="Reaction 模板素材二" />
+                  <img src="https://picsum.photos/seed/reaction-review-c/260/170" alt="Reaction 模板素材三" />
                 </div>
               </article>
             </section>
@@ -208,7 +254,7 @@
               <button data-home-target="skill" data-skill-filter="local"><span class="cat-icon green" data-icon="map-pin"></span><strong>Local Services</strong></button>
               <button data-home-target="skill" data-skill-filter="local"><span class="cat-icon record"></span><strong>Local Picks</strong></button>
               <button data-home-target="skill" data-skill-filter="tiktok"><span class="cat-icon black">♪</span><strong>TikTok Ad Library</strong></button>
-              <button data-home-target="workbench" data-skill-filter="all"><span class="cat-icon slate" data-icon="grid-2x2"></span><strong>All Tools</strong></button>
+              <button data-home-target="tools" data-skill-filter="all"><span class="cat-icon slate" data-icon="grid-2x2"></span><strong>All Tools</strong></button>
             </nav>
           </div>
         </section>
@@ -668,6 +714,61 @@
           </div>
         </section>
 
+        <section class="module-view" data-view="tools">
+          <div class="tool-header"><h1>All Tools</h1><p>按 Topview.ai 的 AI Ads / AI Avatar / AI Video / AI Image / Use Cases 工具矩阵组织。</p></div>
+          <div class="all-tools-shell">
+            <section class="tool-family">
+              <div><span>AI Ads</span><h2>广告与电商成片</h2></div>
+              <div class="tool-grid compact">
+                <article class="tool-card primary" data-tool="ai-video-agent"><span data-icon="bot"></span><strong>AI Video Agent</strong><p>一句话生成广告/社媒/商品视频</p></article>
+                <article class="tool-card" data-tool="ai-ads-video"><span data-icon="megaphone"></span><strong>AI Ads Video</strong><p>TikTok / Reels / Shorts 广告</p></article>
+                <article class="tool-card" data-tool="ai-product-video"><span data-icon="shopping-cart"></span><strong>AI Product Video</strong><p>商品图或链接转产品视频</p></article>
+                <article class="tool-card" data-tool="ai-ugc-video"><span data-icon="user-round"></span><strong>AI UGC Video</strong><p>UGC 测评、开箱、口播</p></article>
+                <article class="tool-card" data-tool="url-to-video"><span data-icon="link"></span><strong>URL to Video</strong><p>链接解析、脚本、分镜、字幕</p></article>
+              </div>
+            </section>
+            <section class="tool-family">
+              <div><span>AI Avatar</span><h2>数字人与口型</h2></div>
+              <div class="tool-grid compact">
+                <article class="tool-card primary" data-tool="ai-avatar-generator"><span data-icon="user-round"></span><strong>AI Avatar Generator</strong><p>真人照片/角色生成数字人</p></article>
+                <article class="tool-card" data-tool="product-avatar"><span data-icon="shopping-bag"></span><strong>Product Avatar</strong><p>数字人与商品同框演示</p></article>
+                <article class="tool-card" data-tool="design-my-avatar"><span data-icon="sparkles"></span><strong>Design My Avatar</strong><p>设定年龄、风格、服装、语气</p></article>
+                <article class="tool-card" data-tool="ai-lip-sync"><span data-icon="audio-lines"></span><strong>AI Lip-sync</strong><p>多语言口型同步</p></article>
+              </div>
+            </section>
+            <section class="tool-family">
+              <div><span>AI Video</span><h2>视频生成与复刻</h2></div>
+              <div class="tool-grid compact">
+                <article class="tool-card primary" data-tool="ai-video-generator"><span data-icon="video"></span><strong>AI Video Generator</strong><p>文生/图生视频</p></article>
+                <article class="tool-card" data-tool="ai-short-video"><span data-icon="clapperboard"></span><strong>AI Short Video</strong><p>短视频脚本与镜头生成</p></article>
+                <article class="tool-card" data-tool="storyboard-to-video"><span data-icon="panels-top-left"></span><strong>Storyboard to Video</strong><p>故事板控制镜头连续性</p></article>
+                <article class="tool-card" data-tool="video-clone"><span data-icon="copy"></span><strong>Video Clone</strong><p>复刻节奏、镜头、字幕结构</p></article>
+                <article class="tool-card" data-tool="video-omni-reference"><span data-icon="layers-3"></span><strong>Omni Reference</strong><p>多参考素材统一生成</p></article>
+              </div>
+            </section>
+            <section class="tool-family">
+              <div><span>AI Image</span><h2>商品图与商业视觉</h2></div>
+              <div class="tool-grid compact">
+                <article class="tool-card primary" data-tool="ai-product-photo"><span data-icon="image"></span><strong>AI Product Photo</strong><p>商品棚拍、场景图、生活方式图</p></article>
+                <article class="tool-card" data-tool="ai-product-shoot"><span data-icon="camera"></span><strong>AI Product Shoots</strong><p>真实光影、背景、材质表现</p></article>
+                <article class="tool-card" data-tool="ai-effects"><span data-icon="wand-sparkles"></span><strong>AI Effects</strong><p>特效、转场、风格增强</p></article>
+                <article class="tool-card" data-tool="virtual-tryon"><span data-icon="shirt"></span><strong>Virtual Try-On</strong><p>服装/配饰虚拟试穿</p></article>
+              </div>
+            </section>
+            <section class="tool-family">
+              <div><span>Use Cases</span><h2>投放与行业场景</h2></div>
+              <div class="tool-grid compact">
+                <article class="tool-card primary" data-tool="advertising-case"><span data-icon="target"></span><strong>Advertising</strong><p>广告计划、素材、导出规格</p></article>
+                <article class="tool-card" data-tool="affiliate-case"><span data-icon="handshake"></span><strong>Affiliate Marketing</strong><p>联盟投放素材批量变体</p></article>
+                <article class="tool-card" data-tool="ecommerce-case"><span data-icon="store"></span><strong>Ecommerce</strong><p>Amazon / Shopify / 抖店商品视频</p></article>
+                <article class="tool-card" data-tool="dtc-case"><span data-icon="badge-check"></span><strong>DTC Brands</strong><p>品牌一致性与 SKU 扩量</p></article>
+                <article class="tool-card" data-tool="ai-live-stream"><span data-icon="radio"></span><strong>AI Live Stream</strong><p>直播脚本、切片、数字人口播</p></article>
+                <article class="tool-card" data-tool="tiktok-ad-library"><span class="cat-icon black">♪</span><strong>TikTok Ad Library</strong><p>爆款广告结构和钩子分析</p></article>
+              </div>
+            </section>
+          </div>
+        </section>
+
         <section class="module-view" data-view="image">
           <div class="tool-header"><h1>图片</h1><p>Image tools</p></div>
           <div class="tool-grid">
@@ -758,7 +859,7 @@
     </div>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script src="./app.js?v=factory-subfeature4"></script>
+    <script src="./app.js?v=factory-parity2"></script>
     <script>
       (() => {
         const syncView = (view) => {

@@ -617,6 +617,107 @@
   margin-top: 8px;
 }
 
+.topview-tool-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.topview-tool-head span {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topview-tool-head p {
+  margin-bottom: 0;
+}
+
+.topview-tool-summary,
+.tool-option-grid,
+.tool-brand-kit {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.topview-tool-summary div {
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.topview-tool-summary span,
+.overlay-field span,
+.tool-overlay-content small {
+  color: #8f939c;
+  font-size: 12px;
+}
+
+.topview-tool-summary strong {
+  overflow: hidden;
+  color: #f5f6f7;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.tool-brand-kit {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tool-pipeline,
+.tool-export-row,
+.tool-overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.tool-pipeline span,
+.tool-export-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #d9dbe0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.tool-overlay-actions {
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
+.generate-button.secondary {
+  border: 1px solid rgba(35, 216, 162, 0.28);
+  background: rgba(35, 216, 162, 0.13);
+  color: #dffdf4;
+}
+
 .settings-default-grid,
 .settings-grid {
   display: grid;
@@ -2937,6 +3038,48 @@ h2 span {
   width: min(1120px, 100%);
 }
 
+.all-tools-shell {
+  display: grid;
+  gap: 20px;
+  width: min(1280px, 100%);
+}
+
+.tool-family {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 96% 0%, rgba(35, 216, 162, 0.1), transparent 160px),
+    #0f1014;
+}
+
+.tool-family > div:first-child {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tool-family > div:first-child span {
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tool-family h2 {
+  margin: 0;
+  color: #f4f5f6;
+}
+
+.tool-grid.compact {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: 100%;
+}
+
 .tool-card {
   display: grid;
   align-content: start;
@@ -3606,6 +3749,12 @@ h2 span {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .tool-grid.compact,
+  .topview-tool-summary,
+  .tool-option-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .agent-composer {
     margin-top: 80px;
   }
@@ -3677,6 +3826,7 @@ h2 span {
 
   .quick-grid,
   .tool-grid,
+  .tool-grid.compact,
   .skill-grid,
   .skill-list,
   .board-grid,
@@ -3703,8 +3853,23 @@ h2 span {
   }
 
   .factory-tool-dock,
-  .factory-module-metrics {
+  .factory-module-metrics,
+  .topview-tool-summary,
+  .tool-option-grid,
+  .tool-brand-kit {
     grid-template-columns: 1fr;
+  }
+
+  .topview-tool-head {
+    display: grid;
+  }
+
+  .tool-overlay-actions {
+    justify-content: stretch;
+  }
+
+  .tool-overlay-actions button {
+    width: 100%;
   }
 
   .factory-frame-shell {
