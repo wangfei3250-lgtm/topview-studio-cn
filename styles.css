@@ -703,6 +703,68 @@
   font-size: 15px;
 }
 
+.open-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.open-source-card {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.open-source-card div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.open-source-card span,
+.open-source-card small,
+.open-source-card em {
+  color: #9da3ad;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.open-source-card strong {
+  color: #f7f8fa;
+  font-size: 15px;
+}
+
+.open-source-card p {
+  margin: 0;
+  color: #d5d8df;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.open-source-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.open-source-actions a {
+  color: #9ee7d4;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.generate-button.danger,
+.canvas-panel-action.danger {
+  border-color: rgba(255, 77, 91, 0.45);
+  background: rgba(255, 77, 91, 0.16);
+  color: #ffd9de;
+}
+
 .settings-grid .wide,
 .settings-check,
 .settings-default-grid .generate-button {
@@ -2215,6 +2277,32 @@ h2 span {
   background: rgba(255, 255, 255, 0.16);
 }
 
+.canvas-asset-item {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.canvas-asset-item div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.canvas-asset-item strong {
+  color: #f5f6f8;
+  font-size: 13px;
+}
+
+.canvas-asset-item small,
+.canvas-panel-section label small {
+  color: #aeb3bc;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .canvas-status-ok {
   color: #34d399;
 }
@@ -3357,7 +3445,8 @@ h2 span {
 
   .settings-default-grid,
   .settings-grid,
-  .settings-provider-card {
+  .settings-provider-card,
+  .open-source-grid {
     grid-template-columns: 1fr;
   }
 

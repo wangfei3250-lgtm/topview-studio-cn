@@ -33,6 +33,7 @@ topview_mirror_full_package/
     功能清单.md
     工作流说明.md
     整理记录.md
+    开源集成调研.md
 ```
 
 ## 核心流程
@@ -63,14 +64,18 @@ topview_mirror_full_package/
 - `GET /api/productions`：读取短剧生产包和媒体输出记录
 - `POST /api/drama/prepare`：从故事/剧本生成角色、场景、节拍、分镜、配音字幕和最终视频计划
 - `POST /api/generate`：统一提交图片、分镜、视频、音频生成任务，返回可接 API 的请求蓝图和本地 mock 输出
-- `GET /api/tasks` / `POST /api/tasks` / `PATCH /api/tasks/:id`：管理任务队列
-- `POST /api/projects`：创建首页项目记录
+- `GET /api/tasks` / `POST /api/tasks` / `PATCH /api/tasks/:id` / `DELETE /api/tasks/:id`：管理任务队列
+- `POST /api/tasks/:id/action`：开始、暂停、完成、重试、取消或复制任务
+- `GET /api/projects` / `POST /api/projects` / `PATCH /api/projects/:id` / `DELETE /api/projects/:id`：管理首页项目
+- `POST /api/projects/:id/duplicate`：复制项目草稿
 - `POST /api/boards`：创建画布记录
 - `GET /api/assets` / `POST /api/assets` / `PATCH /api/assets/:type/:id` / `DELETE /api/assets/:type/:id`：管理角色与场景资产
 - `GET /api/workflow/events` / `POST /api/workflow/events`：记录短剧工作流步骤
 - `PATCH /api/canvas`：保存画布标题、缩放和设置
 - `POST /api/canvas/nodes` / `PATCH /api/canvas/nodes/:id`：保存画布节点位置、显示状态和 Comfy 状态
+- `GET /api/comfy/settings` / `PATCH /api/comfy/settings`：保存本机 ComfyUI 地址、工作流名称和 API Format workflow JSON
 - `GET /api/comfy/status` / `POST /api/comfy/queue`：检测本机 ComfyUI 并创建 Comfy 工作流任务
+- `GET /api/open-source` / `POST /api/open-source/apply`：读取开源增强清单，并把开源方案加入接入任务
 - `POST /api/tools/run`：图片、视频、数字人、音频工具提交任务
 - `POST /api/feedback`：保存画布反馈
 

@@ -33,6 +33,7 @@ const footerAgentButton = $("#footerAgentButton");
 const footerModelButton = $("#footerModelButton");
 const agentSendButton = $("#agentSendButton");
 const backendSettingsButtons = $$("[data-open-backend-settings]");
+const openSourceButtons = $$("[data-open-source-library]");
 const agentRunList = $("#agentRunList");
 
 // --- Workflow Pipeline State ---
@@ -149,6 +150,20 @@ let modelSettingsState = {
 let agentRunState = [];
 let currentProduction = null;
 let currentOutputs = [];
+let projectState = [];
+let openSourceState = {
+  integrations: [],
+  installed: [],
+  comfyTemplate: null,
+};
+let comfySettingsState = {
+  baseUrl: "http://127.0.0.1:8188",
+  workflowName: "短剧图生视频工作流",
+  workflowJson: "",
+  lastStatus: "未检测",
+  lastCheckedAt: "",
+  timeoutMs: 1800,
+};
 
 // Keep track of the current board title during editing
 let currentBoardTitle = "";
@@ -195,6 +210,11 @@ const statusMap = {
   completed: "已完成",
   paused: "已暂停",
   failed: "失败",
+  cancelled: "已取消",
+  draft: "草稿",
+  draft_ready: "草稿就绪",
+  mock_ready: "本地模拟",
+  api_ready: "等待 API",
 };
 
 function makeLocalId(prefix = "local") {
@@ -867,6 +887,114 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 1900);
 }
 
+function fallbackProjects() {
+  return [
+    {
+      id: "local_project_1",
+      title: "制作要求：请将以下第1集剧本制作成480P竖屏短剧，9:16",
+      mode: "single",
+      status: "draft_ready",
+      source: "示例脚本",
+      story: "第1集短剧制作需求",
+      episodeCount: 1,
+      posterSeed: "drama-project-1",
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: "local_project_2",
+      title: "都市复仇反转短剧",
+      mode: "series",
+      status: "draft",
+      source: "故事想法",
+      story: "女主被误解后用证据完成反击，逐集揭开背后同盟。",
+      episodeCount: 8,
+      posterSeed: "drama-project-2",
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: "local_project_3",
+      title: "Generate directly based on the uploaded story idea",
+      mode: "series",
+      status: "queued",
+      source: "uploaded story",
+      story: "Uploaded story idea ready for video production.",
+      episodeCount: 2,
+      posterSeed: "drama-project-3",
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+}
+
+function projectStatusText(status) {
+  return (
+    {
+      generating: "生成中",
+      draft_ready: "可制作",
+      draft: "草稿",
+      queued: "排队中",
+      completed: "已完成",
+      archived: "已归档",
+    }[status] || "草稿"
+  );
+}
+
+function projectModeText(mode, episodeCount = 0) {
+  if (mode === "single") return "1集";
+  const count = Number(episodeCount || 0);
+  return count > 0 ? `${count}集` : "连续剧";
+}
+
+function renderProjects(projects = projectState) {
+  if (!projectGrid) return;
+  const items = projects.length ? projects : fallbackProjects();
+  projectState = items.map((project) => ({ ...project }));
+  const cards = projectState
+    .map((project) => {
+      const seed = encodeURIComponent(project.posterSeed || project.title || project.id);
+      const updated = project.updatedAt || project.lastOpenedAt || project.createdAt;
+      return `
+        <article class="project-card" data-project-id="${escapeHtml(project.id)}">
+          <div class="poster project-poster" style="background-image:url('https://picsum.photos/seed/${seed}/480/720')">
+            <span>${escapeHtml(projectModeText(project.mode, project.episodeCount))}</span>
+          </div>
+          <div class="project-copy">
+            <h3>${escapeHtml(project.title)}</h3>
+            <p>${escapeHtml(formatTime(updated))} · ${escapeHtml(project.source || "本地项目")}</p>
+            <span class="project-status-pill">${escapeHtml(projectStatusText(project.status))}</span>
+          </div>
+          <button class="more-button" aria-label="更多操作" data-icon="ellipsis"></button>
+        </article>
+      `;
+    })
+    .join("");
+  projectGrid.innerHTML = `
+    <button class="start-card" id="blankProject">
+      <span class="plus">+</span>
+      <strong>从零开始</strong>
+      <small>创建一个新的短剧项目</small>
+    </button>
+    ${cards}
+    <article class="sample-card" data-sample-project="snow">
+      <div class="poster poster-4"></div>
+      <div>
+        <small>示例项目</small>
+        <strong>Snow of Mak'Gora</strong>
+        <p>点击使用此示例</p>
+      </div>
+    </article>
+  `;
+  hydrateIcons();
+  refreshProjectCount();
+}
+
+function restoreProjects(projects = []) {
+  if (Array.isArray(projects) && projects.length) {
+    renderProjects(projects);
+    return;
+  }
+  renderProjects(projectState.length ? projectState : fallbackProjects());
+}
+
 async function apiJson(path, options = {}) {
   if (!location.protocol.startsWith("http")) return null;
   try {
@@ -973,6 +1101,76 @@ function renderAgentRuns(runs = agentRunState) {
 function restoreAgentRuns(runs = []) {
   agentRunState = Array.isArray(runs) ? runs : [];
   renderAgentRuns();
+}
+
+function restoreOpenSource(openSource = {}) {
+  openSourceState = {
+    integrations: Array.isArray(openSource.integrations) ? openSource.integrations : openSourceState.integrations,
+    installed: Array.isArray(openSource.installed) ? openSource.installed : openSourceState.installed,
+    comfyTemplate: openSource.comfyTemplate || openSourceState.comfyTemplate,
+  };
+}
+
+function renderOpenSourceLibrary() {
+  const integrations = openSourceState.integrations || [];
+  toolOverlayBody.innerHTML = `
+    <h2>开源增强中心</h2>
+    <p>这里收集适合当前短剧工作室的开源程序。优先选择 MIT / Apache-2.0 等更容易集成的许可证，接入后会生成对应任务。</p>
+    <div class="open-source-grid">
+      ${integrations
+        .map(
+          (item) => `
+            <article class="open-source-card">
+              <div>
+                <span>${escapeHtml(item.category)}</span>
+                <strong>${escapeHtml(item.name)}</strong>
+                <small>${escapeHtml(item.license)} · ${item.installed ? "已加入" : "可加入"}</small>
+              </div>
+              <p>${escapeHtml(item.useCase)}</p>
+              <em>${escapeHtml(item.fit)}</em>
+              <div class="open-source-actions">
+                <a href="${escapeHtml(item.repo)}" target="_blank" rel="noreferrer">源码</a>
+                <button class="generate-button small${item.installed ? " ghost" : ""}" data-open-source-apply="${escapeHtml(item.id)}">${
+                  item.installed ? "重新生成任务" : "加入项目"
+                }</button>
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+    ${
+      openSourceState.comfyTemplate
+        ? `<div class="settings-form">
+            <h3>ComfyUI API 接入模板</h3>
+            <div class="overlay-meta-grid">
+              <span>队列地址</span><strong>${escapeHtml(openSourceState.comfyTemplate.queueEndpoint || "")}</strong>
+              <span>请求方式</span><strong>POST /prompt</strong>
+              <span>格式</span><strong>API Format workflow JSON</strong>
+            </div>
+          </div>`
+        : ""
+    }
+  `;
+  toolOverlay.classList.remove("hidden");
+  hydrateIcons();
+}
+
+async function openOpenSourceLibrary() {
+  const data = await apiJson("/api/open-source", { cache: "no-store" });
+  if (data) restoreOpenSource(data);
+  renderOpenSourceLibrary();
+}
+
+async function applyOpenSourceIntegration(integrationId) {
+  const data = await apiJson("/api/open-source/apply", {
+    method: "POST",
+    body: JSON.stringify({ id: integrationId, workflowName: comfySettingsState.workflowName }),
+  });
+  if (data?.integrations) restoreOpenSource(data);
+  if (Array.isArray(data?.tasks)) mergeBackendTasks(data.tasks);
+  renderOpenSourceLibrary();
+  showToast("开源增强任务已加入工作台");
 }
 
 function providerOptionsHtml(role, selectedId) {
@@ -1308,10 +1506,12 @@ function renderFinalPlan(production) {
   `;
 }
 
-async function prepareDramaProduction(title, story = "") {
+async function prepareDramaProduction(title, story = "", projectId = "") {
   const payload = {
     title: title || currentProjectTitle || "未命名短剧",
     story: story || storyInput?.value?.trim() || currentProjectTitle || "",
+    projectId,
+    mode: selectedMode,
     ratio: ratioSelect?.value || "9:16",
     resolution: resolutionSelect?.value || "1080p",
   };
@@ -1321,6 +1521,7 @@ async function prepareDramaProduction(title, story = "") {
   });
   if (!data?.production) return null;
   if (data.settings) restoreSettings(data.settings);
+  if (Array.isArray(data.projects)) restoreProjects(data.projects);
   restoreAssets(data.assets);
   currentOutputs = data.outputs || currentOutputs;
   renderProduction(data.production, { step: "asset" });
@@ -1466,8 +1667,11 @@ async function loadStudioState() {
   const data = await apiJson("/api/state", { cache: "no-store" });
   if (!data) return;
   mergeBackendTasks(data.tasks || []);
+  restoreProjects(data.projects || []);
   restoreAssets(data.assets);
   restoreCanvasState(data.canvas);
+  restoreComfySettings(data.comfy);
+  restoreOpenSource(data.openSource);
   restoreAgentMessages(data.agentMessages);
   restoreSettings(data.settings);
   restoreAgentRuns(data.agentRuns);
@@ -1498,15 +1702,30 @@ function openTaskDetail(taskId) {
     <p>任务状态：${escapeHtml(statusMap[task.status] || task.status)} · ${escapeHtml(task.note || "无备注")}</p>
     <div class="overlay-meta-grid">
       <span>来源</span><strong>${escapeHtml(task.source || "workspace")}</strong>
-      <span>模型</span><strong>${escapeHtml(task.note || "自动")}</strong>
+      <span>模型</span><strong>${escapeHtml(task.model || task.note || "自动")}</strong>
       <span>创建</span><strong>${escapeHtml(formatTime(task.createdAt))}</strong>
     </div>
+    ${
+      task.payload?.requestBlueprint
+        ? `<div class="settings-form">
+            <h3>API 请求蓝图</h3>
+            <div class="overlay-meta-grid">
+              <span>模式</span><strong>${escapeHtml(task.payload.requestBlueprint.mode || "")}</strong>
+              <span>端点</span><strong>${escapeHtml(task.payload.requestBlueprint.endpoint || "等待 API 地址")}</strong>
+              <span>模型</span><strong>${escapeHtml(task.payload.requestBlueprint.model || "")}</strong>
+            </div>
+          </div>`
+        : ""
+    }
     <div class="overlay-action-row">
       <button class="generate-button small" data-task-action="start" data-task-id="${escapeHtml(task.id)}">开始</button>
       <button class="generate-button small ghost" data-task-action="pause" data-task-id="${escapeHtml(task.id)}">暂停</button>
       <button class="generate-button small" data-task-action="complete" data-task-id="${escapeHtml(task.id)}">完成</button>
+      <button class="generate-button small ghost" data-task-action="retry" data-task-id="${escapeHtml(task.id)}">重试</button>
+      <button class="generate-button small ghost" data-task-action="cancel" data-task-id="${escapeHtml(task.id)}">取消</button>
       <button class="generate-button small ghost" data-task-action="duplicate" data-task-id="${escapeHtml(task.id)}">复制</button>
       <button class="generate-button small" data-task-action="canvas" data-task-id="${escapeHtml(task.id)}">加入画布</button>
+      <button class="generate-button small danger" data-task-action="delete" data-task-id="${escapeHtml(task.id)}">删除</button>
     </div>
   `;
   toolOverlay.classList.remove("hidden");
@@ -1526,26 +1745,61 @@ function handleTaskOverlayAction(button) {
   const task = findTask(button.dataset.taskId);
   if (!task) return;
   const action = button.dataset.taskAction;
-  if (action === "start") {
-    patchTask(task.id, { status: "generating", note: "约 2 分钟" });
-    showToast("任务已开始");
-  }
-  if (action === "pause") {
-    patchTask(task.id, { status: "paused", note: "已暂停" });
-    showToast("任务已暂停");
-  }
-  if (action === "complete") {
-    patchTask(task.id, { status: "completed", note: "下载" });
-    showToast("任务已完成");
-  }
-  if (action === "duplicate") {
-    addTask(`复制：${task.title}`, { note: task.note, source: task.source || "workspace" });
-    showToast("已复制任务");
-  }
+  const actionMessages = {
+    start: "任务已开始",
+    pause: "任务已暂停",
+    complete: "任务已完成",
+    retry: "任务已重新排队",
+    cancel: "任务已取消",
+    duplicate: "已复制任务",
+    delete: "任务已删除",
+  };
   if (action === "canvas") {
     const type = String(task.note || task.title).toLowerCase().includes("seedance") ? "video" : "image";
     createCanvasNode(type, task.title);
     switchView("board", "已加入画布");
+    closeToolOverlay();
+    return;
+  }
+  if (action === "delete") {
+    apiJson(`/api/tasks/${encodeURIComponent(task.id)}`, { method: "DELETE" }).then((data) => {
+      if (Array.isArray(data?.tasks)) mergeBackendTasks(data.tasks);
+      else {
+        const index = tasks.findIndex((item) => item.id === task.id);
+        if (index >= 0) tasks.splice(index, 1);
+        renderTaskTable();
+        renderStatusGrid();
+      }
+      showToast(actionMessages[action]);
+    });
+    closeToolOverlay();
+    return;
+  }
+  apiJson(`/api/tasks/${encodeURIComponent(task.id)}/action`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  }).then((data) => {
+    if (Array.isArray(data?.tasks)) mergeBackendTasks(data.tasks);
+    else if (data?.task) {
+      const index = tasks.findIndex((item) => item.id === data.task.id);
+      if (index >= 0) tasks[index] = data.task;
+      else tasks.unshift(data.task);
+      renderTaskTable();
+      renderStatusGrid();
+    } else if (action === "duplicate") {
+      addTask(`复制：${task.title}`, { note: task.note, source: task.source || "workspace" });
+    }
+    showToast(actionMessages[action] || "任务已更新");
+  });
+  if (["start", "pause", "complete", "retry", "cancel"].includes(action)) {
+    const localStatus = {
+      start: "generating",
+      pause: "paused",
+      complete: "completed",
+      retry: "queued",
+      cancel: "cancelled",
+    }[action];
+    patchTask(task.id, { status: localStatus, note: actionMessages[action] });
   }
   closeToolOverlay();
 }
@@ -1558,6 +1812,15 @@ function restoreAssets(assets) {
   (assets.scenes || []).forEach((item) => scenesData.push(item));
   renderCharacterList();
   renderSceneList();
+}
+
+function restoreComfySettings(comfy) {
+  if (!comfy) return;
+  comfySettingsState = {
+    ...comfySettingsState,
+    ...comfy,
+  };
+  setComfyStatus(comfySettingsState.lastStatus === "已连接", comfySettingsState.lastStatus || "未检测");
 }
 
 function switchView(view, message) {
@@ -1635,6 +1898,48 @@ function closeCanvasPanel() {
   if (!canvasToolPanel) return;
   canvasToolPanel.classList.remove("open");
   canvasToolPanel.setAttribute("aria-hidden", "true");
+}
+
+function renderAssetLibraryItems(type, items = []) {
+  if (!items.length) return `<p>暂无${type === "character" ? "角色" : "场景"}素材。</p>`;
+  return items
+    .map(
+      (asset) => `
+        <article class="canvas-asset-item">
+          <div>
+            <strong>${escapeHtml(asset.name)}</strong>
+            <small>${escapeHtml(asset.description || asset.fileName || "本地素材")}</small>
+          </div>
+          <div class="canvas-panel-actions">
+            <button class="canvas-panel-action" data-asset-action="reference" data-asset-type="${type}" data-asset-id="${escapeHtml(asset.id)}">参考图</button>
+            <button class="canvas-panel-action" data-asset-action="edit" data-asset-type="${type}" data-asset-id="${escapeHtml(asset.id)}">编辑</button>
+            <button class="canvas-panel-action primary" data-asset-action="canvas" data-asset-type="${type}" data-asset-id="${escapeHtml(asset.id)}">画布</button>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderAssetLibraryPanelBody() {
+  return `
+    <section class="canvas-panel-section">
+      <strong>素材库</strong>
+      <p>角色、场景、参考图和上传素材都会进入这里，可直接拖入制作画布。</p>
+      <div class="canvas-panel-actions">
+        <button class="canvas-panel-action" data-canvas-action="import-character">上传角色</button>
+        <button class="canvas-panel-action" data-canvas-action="import-scene">上传场景</button>
+      </div>
+    </section>
+    <section class="canvas-panel-section">
+      <strong>角色</strong>
+      ${renderAssetLibraryItems("character", charactersData)}
+    </section>
+    <section class="canvas-panel-section">
+      <strong>场景</strong>
+      ${renderAssetLibraryItems("scene", scenesData)}
+    </section>
+  `;
 }
 
 function renderCanvasToolPanel(type) {
@@ -1719,31 +2024,35 @@ function renderCanvasToolPanel(type) {
     },
     library: {
       title: "素材库",
-      body: `
-        <section class="canvas-panel-section">
-          <strong>当前素材</strong>
-          <p>选择素材后会生成一个可拖动卡片。</p>
-          <button class="canvas-panel-action" data-canvas-add="image">人物参考图</button>
-          <button class="canvas-panel-action" data-canvas-add="video">节奏参考视频</button>
-          <button class="canvas-panel-action" data-canvas-add="audio">旁白音频</button>
-        </section>
-      `,
+      body: renderAssetLibraryPanelBody(),
     },
     comfy: {
       title: "ComfyUI",
       body: `
         <section class="canvas-panel-section">
           <strong>本机 ComfyUI</strong>
-          <p>默认连接 http://127.0.0.1:8188，可把 Comfy 工作流作为画布节点放进来。</p>
+          <p>填写本地 Comfy 地址，粘贴从 ComfyUI 导出的 API Format workflow JSON。后续会把角色图、分镜提示词和 Seedance 参数替换进去。</p>
+          <label><small>本机地址</small><input id="comfyBaseUrlInput" value="${escapeHtml(comfySettingsState.baseUrl)}" /></label>
+          <label><small>工作流名称</small><input id="comfyWorkflowNameInput" value="${escapeHtml(comfySettingsState.workflowName)}" /></label>
+          <label><small>API Format workflow JSON</small><textarea id="comfyWorkflowJsonInput" placeholder="从 ComfyUI 导出 API Format 后粘贴到这里">${escapeHtml(
+            comfySettingsState.workflowJson || "",
+          )}</textarea></label>
           <div class="canvas-panel-row">
-            <span id="comfyStatusText" class="canvas-status-warn">未检测</span>
-            <span class="canvas-panel-pill">8188</span>
+            <span id="comfyStatusText" class="canvas-status-warn">${escapeHtml(comfySettingsState.lastStatus || "未检测")}</span>
+            <span class="canvas-panel-pill">${escapeHtml(comfySettingsState.baseUrl.replace(/^https?:\/\//, ""))}</span>
           </div>
           <div class="canvas-panel-actions">
+            <button class="canvas-panel-action" data-comfy-action="save">保存配置</button>
             <button class="canvas-panel-action" data-comfy-action="check">检测连接</button>
             <button class="canvas-panel-action" data-comfy-action="open">打开 Comfy</button>
+            <button class="canvas-panel-action" data-comfy-action="queue">加入队列</button>
             <button class="canvas-panel-action primary" data-canvas-action="show-comfy">加入画布</button>
           </div>
+        </section>
+        <section class="canvas-panel-section">
+          <strong>开源接入提示</strong>
+          <p>Comfy API Simplified 的模式是读取 API workflow、按节点标题替换参数，再提交队列。我们的后端已经按这个结构预留。</p>
+          <button class="canvas-panel-action" data-open-source-apply="comfy-api-simplified">加入开源增强任务</button>
         </section>
       `,
     },
@@ -1888,6 +2197,7 @@ function revealComfyNode() {
 function setComfyStatus(online, message) {
   const statusText = $("#comfyStatusText");
   if (comfyNode) comfyNode.dataset.canvasStatus = message;
+  comfySettingsState.lastStatus = message;
   [statusText, comfyNodeStatus].forEach((item) => {
     if (!item) return;
     item.textContent = message;
@@ -1901,6 +2211,7 @@ async function checkComfyStatus() {
   try {
     const response = await fetch("/api/comfy/status", { cache: "no-store" });
     const data = await response.json();
+    if (data?.baseUrl || data?.workflowName) restoreComfySettings(data);
     if (response.ok && data.online) {
       setComfyStatus(true, "已连接");
       persistCanvasNode(comfyNode);
@@ -2019,21 +2330,45 @@ function handleComfyAction(event) {
   const button = event.target.closest("[data-comfy-action]");
   if (!button) return false;
   const action = button.dataset.comfyAction;
+  if (action === "save") {
+    const payload = {
+      baseUrl: $("#comfyBaseUrlInput")?.value.trim() || comfySettingsState.baseUrl,
+      workflowName: $("#comfyWorkflowNameInput")?.value.trim() || comfySettingsState.workflowName,
+      workflowJson: $("#comfyWorkflowJsonInput")?.value.trim() || "",
+    };
+    apiJson("/api/comfy/settings", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }).then((data) => {
+      if (data?.comfy) restoreComfySettings(data.comfy);
+      showToast("ComfyUI 配置已保存");
+    });
+  }
   if (action === "check") checkComfyStatus();
-  if (action === "open") window.open("http://127.0.0.1:8188/", "_blank", "noopener,noreferrer");
+  if (action === "open") window.open(comfySettingsState.baseUrl || "http://127.0.0.1:8188/", "_blank", "noopener,noreferrer");
   if (action === "queue") {
     apiJson("/api/comfy/queue", {
       method: "POST",
-      body: JSON.stringify({ title: "ComfyUI 工作流队列" }),
+      body: JSON.stringify({
+        title: `${comfySettingsState.workflowName || "ComfyUI 工作流"} 队列`,
+        workflowName: $("#comfyWorkflowNameInput")?.value.trim() || comfySettingsState.workflowName,
+        workflowJson: $("#comfyWorkflowJsonInput")?.value.trim() || comfySettingsState.workflowJson,
+        projectTitle: currentProjectTitle || currentProduction?.title || "ComfyUI",
+        prompt: currentProduction?.story || storyInput?.value?.trim() || "",
+      }),
     }).then((data) => {
       const task = data?.task;
       if (task) {
-        tasks.unshift(task);
-        renderTaskTable();
-        renderStatusGrid();
+        if (Array.isArray(data?.tasks)) mergeBackendTasks(data.tasks);
+        else {
+          tasks.unshift(task);
+          renderTaskTable();
+          renderStatusGrid();
+        }
       } else {
         addTask("ComfyUI 工作流队列", { source: "comfy", note: "ComfyUI" });
       }
+      if (data?.comfy) restoreComfySettings(data.comfy);
     });
     showToast("已加入 Comfy 工作流任务");
   }
@@ -2180,43 +2515,54 @@ function openTargetFromHome(button) {
   switchView(target, `${button.innerText.trim()} 已打开`);
 }
 
-function createProjectCard() {
-  const title = storyInput.value.trim().slice(0, 24) || attachedFileName.replace(/\.[^.]+$/, "") || "未命名短剧";
-  const article = document.createElement("article");
-  article.className = "project-card";
-  article.innerHTML = `
-    <div class="poster poster-1"><span>生成中</span></div>
-    <div class="project-copy">
-      <h3>${escapeHtml(title)}</h3>
-      <p>刚刚</p>
-      <span>${selectedMode === "series" ? "连续剧" : "1集"}</span>
-    </div>
-    <button class="more-button" aria-label="更多操作" data-icon="ellipsis"></button>
-  `;
-  projectGrid.insertBefore(article, projectGrid.children[1]);
-  hydrateIcons();
-  refreshProjectCount();
+function createProjectCard(options = {}) {
+  const title =
+    options.title ||
+    storyInput.value.trim().slice(0, 28) ||
+    attachedFileName.replace(/\.[^.]+$/, "") ||
+    "未命名短剧";
+  const project = {
+    id: options.id || makeLocalId("project"),
+    title,
+    mode: options.mode || selectedMode,
+    status: options.status || "generating",
+    source: options.source || attachedFileName || "prompt",
+    story: options.story ?? storyInput.value.trim(),
+    episodeCount: options.episodeCount ?? (selectedMode === "single" ? 1 : 0),
+    posterSeed: options.posterSeed || title,
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+  projectState = [project, ...projectState.filter((item) => item.id !== project.id)];
+  renderProjects(projectState);
   apiJson("/api/projects", {
     method: "POST",
-    body: JSON.stringify({
-      title,
-      mode: selectedMode,
-      status: "generating",
-      source: attachedFileName || "prompt",
-    }),
+    body: JSON.stringify(project),
+  }).then((data) => {
+    if (Array.isArray(data?.projects)) restoreProjects(data.projects);
   });
+  return project;
 }
 
 function openProjectMenu(card) {
-  const title = card?.querySelector("h3")?.textContent?.trim() || "未命名短剧";
+  const projectId = card?.dataset.projectId || "";
+  const project = projectState.find((item) => item.id === projectId);
+  const title = project?.title || card?.querySelector("h3")?.textContent?.trim() || "未命名短剧";
   toolOverlayBody.innerHTML = `
     <h2>${escapeHtml(title)}</h2>
-    <p>对当前项目执行常用操作，操作记录会同步进入任务或工作流。</p>
+    <p>对当前项目执行常用操作，项目状态、任务和工作流都会同步保存。</p>
+    <div class="overlay-meta-grid">
+      <span>状态</span><strong>${escapeHtml(projectStatusText(project?.status))}</strong>
+      <span>模式</span><strong>${escapeHtml(projectModeText(project?.mode, project?.episodeCount))}</strong>
+      <span>来源</span><strong>${escapeHtml(project?.source || "本地项目")}</strong>
+    </div>
     <div class="overlay-action-row">
-      <button class="generate-button small" data-project-action="open" data-project-title="${escapeHtml(title)}">打开工作流</button>
-      <button class="generate-button small ghost" data-project-action="preview" data-project-title="${escapeHtml(title)}">生成预览</button>
-      <button class="generate-button small ghost" data-project-action="duplicate" data-project-title="${escapeHtml(title)}">复制项目</button>
-      <button class="generate-button small" data-project-action="canvas" data-project-title="${escapeHtml(title)}">发送到画布</button>
+      <button class="generate-button small" data-project-action="open" data-project-id="${escapeHtml(projectId)}" data-project-title="${escapeHtml(title)}">打开工作流</button>
+      <button class="generate-button small ghost" data-project-action="preview" data-project-id="${escapeHtml(projectId)}" data-project-title="${escapeHtml(title)}">生成预览</button>
+      <button class="generate-button small ghost" data-project-action="duplicate" data-project-id="${escapeHtml(projectId)}" data-project-title="${escapeHtml(title)}">复制项目</button>
+      <button class="generate-button small ghost" data-project-action="rename" data-project-id="${escapeHtml(projectId)}" data-project-title="${escapeHtml(title)}">重命名</button>
+      <button class="generate-button small" data-project-action="canvas" data-project-id="${escapeHtml(projectId)}" data-project-title="${escapeHtml(title)}">发送到画布</button>
+      <button class="generate-button small danger" data-project-action="delete" data-project-id="${escapeHtml(projectId)}" data-project-title="${escapeHtml(title)}">删除</button>
     </div>
   `;
   toolOverlay.classList.remove("hidden");
@@ -2225,28 +2571,90 @@ function openProjectMenu(card) {
 
 function handleProjectMenuAction(button) {
   const title = button.dataset.projectTitle || "未命名短剧";
+  const projectId = button.dataset.projectId || "";
+  const project = projectState.find((item) => item.id === projectId);
   const action = button.dataset.projectAction;
   if (action === "open") {
     closeToolOverlay();
     showWorkflowSection(title.slice(0, 28));
-    prepareDramaProduction(title.slice(0, 28), title);
+    apiJson(`/api/projects/${encodeURIComponent(projectId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ lastOpenedAt: new Date().toISOString(), status: project?.status || "draft" }),
+    }).then((data) => {
+      if (Array.isArray(data?.projects)) restoreProjects(data.projects);
+    });
+    prepareDramaProduction(title.slice(0, 28), project?.story || title, projectId);
     showToast("已打开项目工作流");
     return;
   }
   if (action === "preview") {
-    addTask(`${title.slice(0, 18)} 项目预览`, { source: "project", note: "gpt-image-2 / Seedance 2.0" });
+    apiJson("/api/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        kind: "video",
+        title: `${title} 项目预览`,
+        taskTitle: `${title.slice(0, 18)} 项目预览`,
+        prompt: project?.story || title,
+        source: "project",
+        productionId: project?.productionId || "",
+        duration: 5,
+      }),
+    }).then((data) => {
+      if (Array.isArray(data?.allTasks)) mergeBackendTasks(data.allTasks);
+      else addTask(`${title.slice(0, 18)} 项目预览`, { source: "project", note: "gpt-image-2 / Seedance 2.0" });
+    });
     showToast("项目预览任务已创建");
   }
   if (action === "duplicate") {
-    const previous = storyInput.value;
-    storyInput.value = title;
-    createProjectCard();
-    storyInput.value = previous;
-    showToast("项目副本已创建");
+    apiJson(`/api/projects/${encodeURIComponent(projectId)}/duplicate`, { method: "POST" }).then((data) => {
+      if (Array.isArray(data?.projects)) restoreProjects(data.projects);
+      else createProjectCard({ ...project, id: makeLocalId("project"), title: `${title} 副本`, status: "draft" });
+      showToast("项目副本已创建");
+    });
+  }
+  if (action === "rename") {
+    toolOverlayBody.innerHTML = `
+      <h2>重命名项目</h2>
+      <label class="overlay-field">
+        <span>项目名称</span>
+        <input id="projectTitleInput" value="${escapeHtml(title)}" />
+      </label>
+      <div class="overlay-action-row">
+        <button class="generate-button small" data-project-action="save-title" data-project-id="${escapeHtml(projectId)}">保存</button>
+      </div>
+    `;
+    hydrateIcons();
+    return;
+  }
+  if (action === "save-title") {
+    const nextTitle = $("#projectTitleInput")?.value.trim();
+    if (!nextTitle) {
+      showToast("请输入项目名称");
+      return;
+    }
+    apiJson(`/api/projects/${encodeURIComponent(projectId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: nextTitle }),
+    }).then((data) => {
+      if (Array.isArray(data?.projects)) restoreProjects(data.projects);
+      showToast("项目已重命名");
+      closeToolOverlay();
+    });
+    return;
   }
   if (action === "canvas") {
     createCanvasNode("text", `项目需求：${title}`);
     switchView("board", "项目已发送到画布");
+  }
+  if (action === "delete") {
+    apiJson(`/api/projects/${encodeURIComponent(projectId)}`, { method: "DELETE" }).then((data) => {
+      if (Array.isArray(data?.projects)) restoreProjects(data.projects);
+      else {
+        projectState = projectState.filter((item) => item.id !== projectId);
+        renderProjects(projectState);
+      }
+      showToast("项目已删除");
+    });
   }
   closeToolOverlay();
 }
@@ -2302,7 +2710,12 @@ async function simulateGeneration() {
   generateButton.innerHTML = '<span data-icon="loader-circle"></span>生成中...';
   hydrateIcons();
   refreshGenerateState();
-  createProjectCard();
+  const createdProject = createProjectCard({
+    story: storyInput.value.trim(),
+    mode: selectedMode,
+    status: "generating",
+    source: attachedFileName || "prompt",
+  });
   showToast(`已提交任务：${writerLabel.textContent} · ${selectedMode === "series" ? "连续剧" : "单集"}`);
 
   // Add a corresponding task to the workbench for this generation request
@@ -2311,7 +2724,7 @@ async function simulateGeneration() {
     addTask(`${baseTitle} 视频任务`);
     // 展开剧情制作工作流界面并保存当前项目标题
     showWorkflowSection(baseTitle);
-    await prepareDramaProduction(baseTitle, storyInput.value.trim());
+    await prepareDramaProduction(baseTitle, storyInput.value.trim(), createdProject?.id || "");
   } catch (err) {
     console.error("Failed to add task:", err);
   }
@@ -2393,15 +2806,16 @@ function createStoryboard() {
   persistWorkflowEvent("storyboard", { frames: frames.length || 8 });
 }
 
-function openAssetOverlay(type) {
+function openAssetOverlay(type, assetId = "") {
   const isCharacter = type === "character";
+  const editingAsset = assetId ? assetCollection(type).find((item) => item.id === assetId) : null;
   const title = isCharacter ? "添加角色" : "添加场景";
-  const nameValue = isCharacter ? "白衣女主" : "雨夜街道";
-  const descValue = isCharacter
+  const nameValue = editingAsset?.name || (isCharacter ? "白衣女主" : "雨夜街道");
+  const descValue = editingAsset?.description || (isCharacter
     ? "冷静、克制、危险感，白色西装，电影感半身像"
-    : "湿润柏油路、霓虹反光、远处车辆灯光、悬疑气氛";
+    : "湿润柏油路、霓虹反光、远处车辆灯光、悬疑气氛");
   toolOverlayBody.innerHTML = `
-    <h2>${title}</h2>
+    <h2>${editingAsset ? "编辑" : title}</h2>
     <p>保存后会进入当前短剧工作流，也可以直接生成 gpt-image-2 参考图任务。</p>
     <label class="overlay-field">
       <span>${isCharacter ? "角色名称" : "场景名称"}</span>
@@ -2411,9 +2825,13 @@ function openAssetOverlay(type) {
       <span>${isCharacter ? "角色描述" : "场景描述"}</span>
       <textarea id="assetDescriptionInput" rows="4">${escapeHtml(descValue)}</textarea>
     </label>
+    <label class="overlay-field">
+      <span>标签</span>
+      <input id="assetTagInput" value="${escapeHtml((editingAsset?.tags || []).join("，"))}" placeholder="主角，近景，雨夜" />
+    </label>
     <div class="overlay-action-row">
-      <button class="generate-button small" data-asset-submit="${type}">保存资产</button>
-      <button class="generate-button small ghost" data-asset-submit="${type}" data-generate-reference="true">保存并生成参考图</button>
+      <button class="generate-button small" data-asset-submit="${type}" data-asset-id="${escapeHtml(assetId)}">保存资产</button>
+      <button class="generate-button small ghost" data-asset-submit="${type}" data-asset-id="${escapeHtml(assetId)}" data-generate-reference="true">保存并生成参考图</button>
     </div>
   `;
   toolOverlay.classList.remove("hidden");
@@ -2422,32 +2840,41 @@ function openAssetOverlay(type) {
 
 function submitAssetOverlay(button) {
   const type = button.dataset.assetSubmit;
+  const assetId = button.dataset.assetId || "";
   const name = $("#assetNameInput")?.value.trim();
   const description = $("#assetDescriptionInput")?.value.trim();
+  const tags = ($("#assetTagInput")?.value || "")
+    .split(/[，,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
   if (!name) {
     showToast("请输入名称");
     return;
   }
   const asset = {
-    id: makeLocalId(type === "character" ? "char" : "scene"),
+    id: assetId || makeLocalId(type === "character" ? "char" : "scene"),
     type,
     name,
     description,
     prompt: description,
     imageModel: "gpt-image-2",
+    tags,
+    source: assetId ? "edited" : "manual",
+    productionId: currentProduction?.id || "",
   };
-  if (type === "character") charactersData.unshift(asset);
-  else scenesData.unshift(asset);
+  const collection = assetCollection(type);
+  const existingIndex = collection.findIndex((item) => item.id === asset.id);
+  if (existingIndex >= 0) collection[existingIndex] = { ...collection[existingIndex], ...asset };
+  else collection.unshift(asset);
   renderCharacterList();
   renderSceneList();
-  apiJson("/api/assets", {
-    method: "POST",
+  const requestPath = assetId ? `/api/assets/${type}/${encodeURIComponent(asset.id)}` : "/api/assets";
+  apiJson(requestPath, {
+    method: assetId ? "PATCH" : "POST",
     body: JSON.stringify(asset),
   }).then((data) => {
     if (!data?.asset) return;
-    asset.id = data.asset.id;
-    renderCharacterList();
-    renderSceneList();
+    restoreAssets(data.assets);
   });
   persistWorkflowEvent("asset", { type, name, description });
   if (button.dataset.generateReference === "true") {
@@ -2481,6 +2908,10 @@ function handleAssetListAction(event) {
   const type = button.dataset.assetType;
   const asset = assetCollection(type).find((item) => item.id === button.dataset.assetId);
   if (!asset) return;
+  if (button.dataset.assetAction === "edit") {
+    openAssetOverlay(type, asset.id);
+    return;
+  }
   if (button.dataset.assetAction === "reference") {
     apiJson("/api/generate", {
       method: "POST",
@@ -2509,7 +2940,10 @@ function handleAssetListAction(event) {
     if (index >= 0) collection.splice(index, 1);
     renderCharacterList();
     renderSceneList();
-    apiJson(`/api/assets/${type}/${encodeURIComponent(asset.id)}`, { method: "DELETE" });
+    apiJson(`/api/assets/${type}/${encodeURIComponent(asset.id)}`, { method: "DELETE" }).then((data) => {
+      if (data?.assets) restoreAssets(data.assets);
+      if (canvasToolPanel?.classList.contains("open")) renderCanvasToolPanel("library");
+    });
     showToast("资产已删除");
   }
 }
@@ -2537,7 +2971,9 @@ function renderCharacterList() {
           c.description || "",
         )}</small><span class="asset-actions"><button data-asset-action="reference" data-asset-type="character" data-asset-id="${escapeHtml(
           c.id,
-        )}">参考图</button><button data-asset-action="canvas" data-asset-type="character" data-asset-id="${escapeHtml(
+        )}">参考图</button><button data-asset-action="edit" data-asset-type="character" data-asset-id="${escapeHtml(
+          c.id,
+        )}">编辑</button><button data-asset-action="canvas" data-asset-type="character" data-asset-id="${escapeHtml(
           c.id,
         )}">画布</button><button data-asset-action="delete" data-asset-type="character" data-asset-id="${escapeHtml(
           c.id,
@@ -2558,7 +2994,9 @@ function renderSceneList() {
           s.description || "",
         )}</small><span class="asset-actions"><button data-asset-action="reference" data-asset-type="scene" data-asset-id="${escapeHtml(
           s.id,
-        )}">参考图</button><button data-asset-action="canvas" data-asset-type="scene" data-asset-id="${escapeHtml(
+        )}">参考图</button><button data-asset-action="edit" data-asset-type="scene" data-asset-id="${escapeHtml(
+          s.id,
+        )}">编辑</button><button data-asset-action="canvas" data-asset-type="scene" data-asset-id="${escapeHtml(
           s.id,
         )}">画布</button><button data-asset-action="delete" data-asset-type="scene" data-asset-id="${escapeHtml(
           s.id,
@@ -2735,6 +3173,10 @@ backendSettingsButtons.forEach((button) => {
   button.addEventListener("click", openBackendSettings);
 });
 
+openSourceButtons.forEach((button) => {
+  button.addEventListener("click", openOpenSourceLibrary);
+});
+
 skillFilterBar.addEventListener("click", (event) => {
   const option = event.target.closest("button[data-skill-filter]");
   if (!option) return;
@@ -2759,7 +3201,7 @@ document.addEventListener("click", () => {
   canvasModelPopover?.classList.remove("open");
 });
 
-$("#blankProject").addEventListener("click", () => {
+$("#blankProject")?.addEventListener("click", () => {
   storyInput.value = "";
   attachedFileName = "";
   storyInput.focus();
@@ -2769,6 +3211,15 @@ $("#blankProject").addEventListener("click", () => {
 generateButton.addEventListener("click", simulateGeneration);
 
 projectGrid.addEventListener("click", (event) => {
+  const blank = event.target.closest("#blankProject");
+  if (blank) {
+    storyInput.value = "";
+    attachedFileName = "";
+    storyInput.focus();
+    refreshGenerateState();
+    switchView("drama", "可以开始创建新项目");
+    return;
+  }
   const moreButton = event.target.closest(".more-button");
   if (moreButton) {
     const card = moreButton.closest(".project-card");
@@ -2777,9 +3228,11 @@ projectGrid.addEventListener("click", (event) => {
   }
   const projectCard = event.target.closest(".project-card, .sample-card");
   if (projectCard) {
-    const title = projectCard.querySelector("h3, strong")?.textContent?.trim() || "未命名短剧";
+    const projectId = projectCard.dataset.projectId || "";
+    const project = projectState.find((item) => item.id === projectId);
+    const title = project?.title || projectCard.querySelector("h3, strong")?.textContent?.trim() || "未命名短剧";
     showWorkflowSection(title.slice(0, 28));
-    prepareDramaProduction(title.slice(0, 28), title);
+    prepareDramaProduction(title.slice(0, 28), project?.story || title, projectId);
     showToast("已打开项目工作流");
   }
 });
@@ -2938,6 +3391,11 @@ canvasComposerAddButton?.addEventListener("click", () => renderCanvasToolPanel("
 canvasSkillButton?.addEventListener("click", () => renderCanvasToolPanel("library"));
 canvasToolPanelClose?.addEventListener("click", closeCanvasPanel);
 canvasToolPanelBody?.addEventListener("click", (event) => {
+  const openSourceApplyButton = event.target.closest("[data-open-source-apply]");
+  if (openSourceApplyButton) {
+    applyOpenSourceIntegration(openSourceApplyButton.dataset.openSourceApply);
+    return;
+  }
   if (handleComfyAction(event)) return;
   handleCanvasPanelAction(event);
 });
@@ -3087,6 +3545,11 @@ if (toolOverlayBody) {
     }
     if (event.target.closest("[data-settings-default-save]")) {
       saveDefaultRoles();
+      return;
+    }
+    const openSourceApplyButton = event.target.closest("[data-open-source-apply]");
+    if (openSourceApplyButton) {
+      applyOpenSourceIntegration(openSourceApplyButton.dataset.openSourceApply);
       return;
     }
     const taskButton = event.target.closest("[data-task-action]");

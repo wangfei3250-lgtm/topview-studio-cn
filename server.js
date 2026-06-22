@@ -1,4 +1,5 @@
 const http = require("http");
+const https = require("https");
 const fs = require("fs");
 const path = require("path");
 
@@ -147,6 +148,69 @@ const defaultSettings = {
   modelProviders: defaultModelProviders,
 };
 
+const openSourceIntegrations = [
+  {
+    id: "comfy-api-simplified",
+    name: "Comfy API Simplified",
+    license: "MIT",
+    category: "ComfyUI",
+    repo: "https://github.com/deimos-deimos/comfy_api_simplified",
+    useCase: "读取 API 格式 ComfyUI workflow，替换节点参数，然后提交到本机 Comfy 队列。",
+    fit: "立即可用：我们的 Comfy 面板已经按本机 URL、workflow JSON、队列任务拆好。",
+    status: "ready",
+  },
+  {
+    id: "sortablejs",
+    name: "SortableJS",
+    license: "MIT",
+    category: "拖拽排序",
+    repo: "https://github.com/SortableJS/Sortable",
+    useCase: "任务队列、分镜卡片、素材排序使用拖拽排序，支持触摸设备和跨列表拖拽。",
+    fit: "适合下一步把分镜/时间线顺序做成可拖动排序。",
+    status: "planned",
+  },
+  {
+    id: "litegraph",
+    name: "LiteGraph.js",
+    license: "MIT",
+    category: "节点画布",
+    repo: "https://github.com/jagenjo/litegraph.js",
+    useCase: "像 ComfyUI 一样用节点图保存工作流，并导出 JSON。",
+    fit: "适合把当前画布升级成可视化工作流编辑器。",
+    status: "planned",
+  },
+  {
+    id: "ffmpeg-wasm",
+    name: "ffmpeg.wasm",
+    license: "MIT",
+    category: "浏览器导出",
+    repo: "https://github.com/ffmpegwasm/ffmpeg.wasm",
+    useCase: "在浏览器内转码、拼接、抽帧和处理音视频，减少后端压力。",
+    fit: "适合最终导出中心：预览转码、封面抽帧、音频合并。",
+    status: "planned",
+  },
+  {
+    id: "openreel-video",
+    name: "OpenReel Video",
+    license: "MIT",
+    category: "视频时间线",
+    repo: "https://github.com/Augani/openreel-video",
+    useCase: "浏览器端多轨时间线、字幕、音频、转场和本地导出。",
+    fit: "适合参考其时间线结构补齐我们的剪辑台。",
+    status: "research",
+  },
+  {
+    id: "transformers-js",
+    name: "Transformers.js",
+    license: "Apache-2.0",
+    category: "本地 AI",
+    repo: "https://github.com/huggingface/transformers.js",
+    useCase: "浏览器运行小模型，用于素材自动打标签、摘要、字幕校对和内容分类。",
+    fit: "适合做不依赖 API 的本地辅助能力。",
+    status: "planned",
+  },
+];
+
 const defaultState = {
   projects: [],
   tasks: [],
@@ -176,6 +240,17 @@ const defaultState = {
   agentRuns: [],
   feedback: [],
   workflowRuns: [],
+  comfy: {
+    baseUrl: "http://127.0.0.1:8188",
+    workflowName: "短剧图生视频工作流",
+    workflowJson: "",
+    lastStatus: "未检测",
+    lastCheckedAt: "",
+    timeoutMs: 1800,
+  },
+  integrations: {
+    installed: [],
+  },
   settings: defaultSettings,
 };
 
@@ -200,6 +275,10 @@ function ensureStateShape(input) {
   state.agentRuns = Array.isArray(state.agentRuns) ? state.agentRuns : [];
   state.feedback = Array.isArray(state.feedback) ? state.feedback : [];
   state.workflowRuns = Array.isArray(state.workflowRuns) ? state.workflowRuns : [];
+  state.comfy = normalizeComfySettings(state.comfy);
+  state.integrations = {
+    installed: Array.isArray(state.integrations?.installed) ? state.integrations.installed : [],
+  };
   state.canvas = { ...clone(defaultState.canvas), ...(state.canvas || {}) };
   state.canvas.settings = { ...clone(defaultState.canvas.settings), ...(state.canvas.settings || {}) };
   state.canvas.nodes = Array.isArray(state.canvas.nodes) ? state.canvas.nodes : clone(defaultState.canvas.nodes);
@@ -254,6 +333,18 @@ function asBoolean(value, fallback = true) {
   if (value === 1 || value === "1") return true;
   if (value === 0 || value === "0") return false;
   return fallback;
+}
+
+function normalizeComfySettings(settings = {}) {
+  const baseUrl = String(settings.baseUrl || defaultState.comfy.baseUrl || "http://127.0.0.1:8188").trim();
+  return {
+    baseUrl: baseUrl || "http://127.0.0.1:8188",
+    workflowName: String(settings.workflowName || defaultState.comfy.workflowName),
+    workflowJson: String(settings.workflowJson || ""),
+    lastStatus: String(settings.lastStatus || "未检测"),
+    lastCheckedAt: String(settings.lastCheckedAt || ""),
+    timeoutMs: Math.max(600, Math.min(15000, Number(settings.timeoutMs || defaultState.comfy.timeoutMs || 1800))),
+  };
 }
 
 function normalizeProvider(provider, fallback = {}) {
@@ -315,6 +406,11 @@ function publicState() {
   return {
     ...clone(state),
     settings: publicSettings(),
+    openSource: {
+      integrations: publicOpenSourceIntegrations(),
+      installed: state.integrations.installed,
+      comfyTemplate: comfyWorkflowTemplate(),
+    },
   };
 }
 
@@ -391,6 +487,60 @@ function createTask(item) {
   return task;
 }
 
+function createProject(payload = {}) {
+  const title = String(payload.title || "未命名短剧").trim() || "未命名短剧";
+  const now = new Date().toISOString();
+  const project = {
+    id: payload.id || makeId("project"),
+    title,
+    mode: String(payload.mode || "series"),
+    status: String(payload.status || "draft"),
+    source: String(payload.source || ""),
+    story: String(payload.story || payload.prompt || ""),
+    posterSeed: String(payload.posterSeed || title),
+    episodeCount: Number.isFinite(Number(payload.episodeCount)) ? Number(payload.episodeCount) : payload.mode === "single" ? 1 : 0,
+    productionId: String(payload.productionId || ""),
+    canvasId: String(payload.canvasId || ""),
+    lastOpenedAt: payload.lastOpenedAt || now,
+    createdAt: payload.createdAt || now,
+    updatedAt: now,
+  };
+  state.projects.unshift(project);
+  state.projects = state.projects.slice(0, 120);
+  saveState();
+  return project;
+}
+
+function updateProject(projectId, patch = {}) {
+  const project = state.projects.find((item) => item.id === projectId);
+  if (!project) return null;
+  const allowed = ["title", "mode", "status", "source", "story", "posterSeed", "episodeCount", "productionId", "canvasId", "lastOpenedAt"];
+  allowed.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(patch, key)) {
+      project[key] = key === "episodeCount" ? Number(patch[key] || 0) : String(patch[key] || "");
+    }
+  });
+  project.updatedAt = new Date().toISOString();
+  saveState();
+  return project;
+}
+
+function duplicateProject(projectId) {
+  const project = state.projects.find((item) => item.id === projectId);
+  if (!project) return null;
+  return createProject({
+    ...project,
+    id: undefined,
+    title: `${project.title} 副本`,
+    status: "draft",
+    productionId: "",
+    canvasId: "",
+    createdAt: undefined,
+    updatedAt: undefined,
+    lastOpenedAt: undefined,
+  });
+}
+
 function upsertCanvasNode(node) {
   const id = String(node.id || node.dataId || makeId("node"));
   const existingIndex = state.canvas.nodes.findIndex((item) => item.id === id);
@@ -426,6 +576,13 @@ function createAsset(kind, payload) {
     prompt: String(payload.prompt || payload.description || ""),
     imageModel: imageModel.model,
     providerId: imageModel.providerId,
+    fileName: String(payload.fileName || ""),
+    url: String(payload.url || ""),
+    thumbnailUrl: String(payload.thumbnailUrl || payload.url || ""),
+    tags: Array.isArray(payload.tags) ? payload.tags.map((tag) => String(tag)).filter(Boolean) : [],
+    status: String(payload.status || "ready"),
+    source: String(payload.source || "manual"),
+    productionId: String(payload.productionId || ""),
     createdAt: payload.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -632,6 +789,7 @@ function createDramaProduction(payload = {}) {
   const voiceover = buildVoiceover(beats);
   const production = {
     id: payload.id || makeId("prod"),
+    projectId: String(payload.projectId || ""),
     title,
     story,
     status: "draft_ready",
@@ -685,6 +843,15 @@ function createDramaProduction(payload = {}) {
   production.taskIds = tasks.map((task) => task.id);
   state.productions.unshift(production);
   state.productions = state.productions.slice(0, 80);
+  if (payload.projectId) {
+    updateProject(String(payload.projectId), {
+      productionId: production.id,
+      status: "draft_ready",
+      story,
+      episodeCount: payload.mode === "single" ? 1 : 8,
+      lastOpenedAt: new Date().toISOString(),
+    });
+  }
   addWorkflowEvent({
     projectTitle: title,
     step: "production-prepared",
@@ -874,12 +1041,21 @@ function upsertModelProvider(payload = {}) {
 }
 
 function checkComfy(callback) {
-  const request = http.get(
+  let targetUrl;
+  try {
+    targetUrl = new URL(state.comfy.baseUrl || "http://127.0.0.1:8188");
+  } catch (err) {
+    callback(new Error("Invalid ComfyUI URL"));
+    return;
+  }
+  const client = targetUrl.protocol === "https:" ? https : http;
+  const request = client.get(
     {
-      hostname: "127.0.0.1",
-      port: 8188,
+      hostname: targetUrl.hostname,
+      port: targetUrl.port || (targetUrl.protocol === "https:" ? 443 : 80),
+      protocol: targetUrl.protocol,
       path: "/system_stats",
-      timeout: 1800,
+      timeout: state.comfy.timeoutMs || 1800,
     },
     (response) => {
       let body = "";
@@ -897,6 +1073,8 @@ function checkComfy(callback) {
         callback(null, {
           online: response.statusCode >= 200 && response.statusCode < 300,
           statusCode: response.statusCode,
+          baseUrl: state.comfy.baseUrl,
+          workflowName: state.comfy.workflowName,
           stats,
         });
       });
@@ -904,6 +1082,32 @@ function checkComfy(callback) {
   );
   request.on("timeout", () => request.destroy(new Error("ComfyUI timeout")));
   request.on("error", (error) => callback(error));
+}
+
+function comfyWorkflowTemplate() {
+  return {
+    name: state.comfy.workflowName || "短剧图生视频工作流",
+    requirement: "在 ComfyUI 开启 Dev mode Options 后导出 API Format workflow JSON，再粘贴到本系统。",
+    queueEndpoint: `${state.comfy.baseUrl.replace(/\/$/, "")}/prompt`,
+    requestBody: {
+      prompt: "{API_FORMAT_WORKFLOW_JSON}",
+      client_id: "topview-studio-cn",
+    },
+    replaceableFields: [
+      { label: "正向提示词", key: "positive_prompt", source: "分镜 prompt" },
+      { label: "负向提示词", key: "negative_prompt", source: "后台默认模板" },
+      { label: "参考图", key: "source_image", source: "角色/场景/分镜素材" },
+      { label: "视频时长", key: "duration", source: "分镜时长" },
+    ],
+  };
+}
+
+function publicOpenSourceIntegrations() {
+  const installed = new Set(state.integrations.installed.map((item) => item.id));
+  return openSourceIntegrations.map((item) => ({
+    ...item,
+    installed: installed.has(item.id),
+  }));
 }
 
 function handleApi(req, res, pathname) {
@@ -968,23 +1172,112 @@ function handleApi(req, res, pathname) {
     return true;
   }
 
+  if (pathname === "/api/open-source" && req.method === "GET") {
+    sendJson(res, 200, {
+      integrations: publicOpenSourceIntegrations(),
+      installed: state.integrations.installed,
+      comfyTemplate: comfyWorkflowTemplate(),
+    });
+    return true;
+  }
+
+  if (pathname === "/api/open-source/apply" && req.method === "POST") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      const integration = openSourceIntegrations.find((item) => item.id === payload.id);
+      if (!integration) {
+        sendJson(res, 404, { error: "Integration not found" });
+        return;
+      }
+      const installed = {
+        id: integration.id,
+        name: integration.name,
+        license: integration.license,
+        repo: integration.repo,
+        status: integration.status === "ready" ? "ready" : "queued",
+        appliedAt: new Date().toISOString(),
+      };
+      state.integrations.installed = [
+        installed,
+        ...state.integrations.installed.filter((item) => item.id !== installed.id),
+      ].slice(0, 40);
+      if (integration.id === "comfy-api-simplified") {
+        state.comfy.workflowName = payload.workflowName || state.comfy.workflowName || "短剧图生视频工作流";
+      }
+      const task = createTask({
+        title: `开源增强：${integration.name}`,
+        status: integration.status === "ready" ? "completed" : "queued",
+        note: `${integration.license} · ${integration.category}`,
+        source: "open-source",
+        kind: "integration",
+        payload: {
+          repo: integration.repo,
+          useCase: integration.useCase,
+          fit: integration.fit,
+        },
+      });
+      addWorkflowEvent({
+        projectTitle: "开源增强",
+        step: "open-source-apply",
+        status: task.status,
+        detail: { integrationId: integration.id, taskId: task.id },
+      });
+      saveState();
+      sendJson(res, 201, {
+        integration: installed,
+        integrations: publicOpenSourceIntegrations(),
+        installed: state.integrations.installed,
+        task,
+        tasks: state.tasks,
+        comfyTemplate: comfyWorkflowTemplate(),
+      });
+    });
+    return true;
+  }
+
   if (pathname === "/api/agent/runs" && req.method === "GET") {
     sendJson(res, 200, { agentRuns: state.agentRuns });
+    return true;
+  }
+
+  if (pathname === "/api/comfy/settings" && req.method === "GET") {
+    sendJson(res, 200, { comfy: state.comfy });
+    return true;
+  }
+
+  if (pathname === "/api/comfy/settings" && req.method === "PATCH") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      state.comfy = normalizeComfySettings({ ...state.comfy, ...payload });
+      saveState();
+      sendJson(res, 200, { comfy: state.comfy });
+    });
     return true;
   }
 
   if (pathname === "/api/comfy/status" && req.method === "GET") {
     checkComfy((error, result) => {
       if (error) {
+        state.comfy.lastStatus = "未连接";
+        state.comfy.lastCheckedAt = new Date().toISOString();
+        saveState();
         sendJson(res, 200, { online: false, error: error.message });
         return;
       }
+      state.comfy.lastStatus = result.online ? "已连接" : "未连接";
+      state.comfy.lastCheckedAt = new Date().toISOString();
       const comfyNode = state.canvas.nodes.find((node) => node.id === "comfy");
       if (comfyNode) {
         comfyNode.status = result.online ? "已连接" : "未连接";
         comfyNode.updatedAt = new Date().toISOString();
-        saveState();
       }
+      saveState();
       sendJson(res, 200, result);
     });
     return true;
@@ -997,12 +1290,26 @@ function handleApi(req, res, pathname) {
         return;
       }
       const task = createTask({
-        title: payload.title || "ComfyUI 工作流队列",
+        title: payload.title || `${state.comfy.workflowName} 队列`,
         status: "queued",
         note: "ComfyUI",
         source: "comfy",
+        kind: "comfy",
+        payload: {
+          baseUrl: state.comfy.baseUrl,
+          workflowName: payload.workflowName || state.comfy.workflowName,
+          workflowJson: payload.workflowJson || state.comfy.workflowJson,
+          prompt: payload.prompt || "",
+          inputIds: payload.inputIds || [],
+        },
       });
-      sendJson(res, 201, { task });
+      addWorkflowEvent({
+        projectTitle: payload.projectTitle || "ComfyUI",
+        step: "comfy-queue",
+        status: "queued",
+        detail: { taskId: task.id, baseUrl: state.comfy.baseUrl },
+      });
+      sendJson(res, 201, { task, comfy: state.comfy, tasks: state.tasks });
     });
     return true;
   }
@@ -1047,6 +1354,7 @@ function handleApi(req, res, pathname) {
         ...result,
         productions: state.productions,
         outputs: state.outputs,
+        projects: state.projects,
         allTasks: state.tasks,
         settings: publicSettings(),
       });
@@ -1143,6 +1451,77 @@ function handleApi(req, res, pathname) {
     return true;
   }
 
+  if (taskMatch && req.method === "DELETE") {
+    const taskId = decodeURIComponent(taskMatch[1]);
+    const before = state.tasks.length;
+    state.tasks = state.tasks.filter((item) => item.id !== taskId);
+    if (state.tasks.length === before) {
+      sendJson(res, 404, { error: "Task not found" });
+      return true;
+    }
+    saveState();
+    sendJson(res, 200, { tasks: state.tasks });
+    return true;
+  }
+
+  const taskActionMatch = pathname.match(/^\/api\/tasks\/([^/]+)\/action$/);
+  if (taskActionMatch && req.method === "POST") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      const taskId = decodeURIComponent(taskActionMatch[1]);
+      const task = state.tasks.find((item) => item.id === taskId);
+      if (!task) {
+        sendJson(res, 404, { error: "Task not found" });
+        return;
+      }
+      const action = String(payload.action || "");
+      const nextStatus = {
+        start: "generating",
+        pause: "paused",
+        complete: "completed",
+        retry: "queued",
+        cancel: "cancelled",
+        fail: "failed",
+      }[action];
+      if (action === "duplicate") {
+        const duplicate = createTask({
+          ...task,
+          id: undefined,
+          title: `复制：${task.title}`,
+          status: "queued",
+          note: task.model || task.note,
+          createdAt: undefined,
+          updatedAt: undefined,
+        });
+        sendJson(res, 201, { task: duplicate, tasks: state.tasks });
+        return;
+      }
+      if (!nextStatus) {
+        sendJson(res, 400, { error: "Unknown task action" });
+        return;
+      }
+      task.status = nextStatus;
+      task.note =
+        payload.note ||
+        {
+          generating: "约 2 分钟",
+          paused: "已暂停",
+          completed: "下载",
+          queued: "等待重试",
+          cancelled: "已取消",
+          failed: "失败，可重试",
+        }[nextStatus] ||
+        task.note;
+      task.updatedAt = new Date().toISOString();
+      saveState();
+      sendJson(res, 200, { task, tasks: state.tasks });
+    });
+    return true;
+  }
+
   if (pathname === "/api/assets" && req.method === "GET") {
     sendJson(res, 200, { assets: state.assets });
     return true;
@@ -1231,25 +1610,61 @@ function handleApi(req, res, pathname) {
     return true;
   }
 
+  if (pathname === "/api/projects" && req.method === "GET") {
+    sendJson(res, 200, { projects: state.projects });
+    return true;
+  }
+
   if (pathname === "/api/projects" && req.method === "POST") {
     readJson(req, (error, payload) => {
       if (error) {
         sendJson(res, 400, { error: "Invalid JSON" });
         return;
       }
-      const project = {
-        id: payload.id || makeId("project"),
-        title: String(payload.title || "未命名短剧"),
-        mode: String(payload.mode || "series"),
-        status: String(payload.status || "generating"),
-        source: String(payload.source || ""),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      state.projects.unshift(project);
-      saveState();
-      sendJson(res, 201, { project });
+      const project = createProject(payload);
+      sendJson(res, 201, { project, projects: state.projects });
     });
+    return true;
+  }
+
+  const projectMatch = pathname.match(/^\/api\/projects\/([^/]+)$/);
+  if (projectMatch && req.method === "PATCH") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      const project = updateProject(decodeURIComponent(projectMatch[1]), payload);
+      if (!project) {
+        sendJson(res, 404, { error: "Project not found" });
+        return;
+      }
+      sendJson(res, 200, { project, projects: state.projects });
+    });
+    return true;
+  }
+
+  if (projectMatch && req.method === "DELETE") {
+    const projectId = decodeURIComponent(projectMatch[1]);
+    const before = state.projects.length;
+    state.projects = state.projects.filter((item) => item.id !== projectId);
+    if (state.projects.length === before) {
+      sendJson(res, 404, { error: "Project not found" });
+      return true;
+    }
+    saveState();
+    sendJson(res, 200, { projects: state.projects });
+    return true;
+  }
+
+  const projectDuplicateMatch = pathname.match(/^\/api\/projects\/([^/]+)\/duplicate$/);
+  if (projectDuplicateMatch && req.method === "POST") {
+    const project = duplicateProject(decodeURIComponent(projectDuplicateMatch[1]));
+    if (!project) {
+      sendJson(res, 404, { error: "Project not found" });
+      return true;
+    }
+    sendJson(res, 201, { project, projects: state.projects });
     return true;
   }
 
