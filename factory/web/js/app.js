@@ -98,6 +98,18 @@ async function viewProjects() {
   document.getElementById('list').innerHTML = projects.length ? projects.map(projCard).join('') : `<div class="empty">还没有项目</div>`;
 }
 
+function viewStudio() {
+  page.innerHTML = `
+    <div class="studio-head">
+      <div>
+        <h1>国内版 AI 视频工作室</h1>
+        <p class="sub">原项目工作室已嵌入当前测试版，可继续使用首页、Agent、画布、短剧工作流和工具模块。</p>
+      </div>
+      <a class="open-studio" href="/" target="_blank" rel="noopener">打开完整工作室</a>
+    </div>
+    <iframe class="studio-frame" src="/" title="国内版 AI 视频工作室原型"></iframe>`;
+}
+
 async function viewProject(id) {
   page.innerHTML = `<div class="empty">加载中…</div>`;
   let p;
@@ -258,6 +270,7 @@ async function route() {
   const m = h.match(/^\/project\/(.+)$/);
   if (m) { setNav('projects'); return viewProject(m[1]); }
   if (h.startsWith('/projects')) { setNav('projects'); return viewProjects(); }
+  if (h.startsWith('/studio')) { setNav('studio'); return viewStudio(); }
   if (h.startsWith('/settings')) { setNav('settings'); return viewSettings(); }
   setNav('home'); return viewHome();
 }
