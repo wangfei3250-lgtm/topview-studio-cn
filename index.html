@@ -480,6 +480,14 @@
 
         <!-- 新增剧情制作工作流区域 -->
         <section id="workflowSection" class="workflow-section hidden">
+          <div class="production-console">
+            <div>
+              <span>生产链路</span>
+              <strong id="productionTitle">未命名短剧</strong>
+            </div>
+            <div id="productionStageList" class="production-stage-list"></div>
+            <div id="productionModelMap" class="production-model-map"></div>
+          </div>
           <!-- Step 0: Assets -->
           <div id="assetStep" class="workflow-step">
             <h3>角色与场景资产</h3>
@@ -500,7 +508,7 @@
             <h3>剧情节奏（Beat Sheet）</h3>
             <table class="beat-table">
               <thead>
-                <tr><th>节拍</th><th>情绪强度</th><th>时长</th></tr>
+                <tr><th>节拍</th><th>画面目标</th><th>对白/字幕</th><th>情绪</th><th>时长</th></tr>
               </thead>
               <tbody id="beatTableBody">
                 <!-- 动态填充 -->
@@ -535,6 +543,7 @@
                 </select>
               </label>
             </div>
+            <div id="voiceoverList" class="voiceover-list"></div>
             <button id="nextFinalButton" class="generate-button small"><span data-icon="video"></span>生成最终视频</button>
           </div>
           <!-- Step 4: Final video -->
@@ -557,6 +566,7 @@
             </div>
             <button id="generateFinalButton" class="generate-button small"><span data-icon="film"></span>生成导出</button>
             <div id="finalPreview" class="final-preview hidden">
+              <div id="finalTimeline" class="final-timeline"></div>
               <p>生成完成！点击下方按钮下载最终视频。</p>
               <button id="downloadFinalButton" class="download-button" data-icon="download">下载视频</button>
             </div>

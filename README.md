@@ -60,6 +60,9 @@ topview_mirror_full_package/
 - `GET /api/agents`：读取三个视频智能体和后台模型设置
 - `GET /api/agent/runs` / `POST /api/agent/run`：创建 Agent 运行记录、结构化执行步骤和工作台任务
 - `POST /api/agent/messages`：兼容旧入口，写入 Agent 对话，并返回执行计划和任务
+- `GET /api/productions`：读取短剧生产包和媒体输出记录
+- `POST /api/drama/prepare`：从故事/剧本生成角色、场景、节拍、分镜、配音字幕和最终视频计划
+- `POST /api/generate`：统一提交图片、分镜、视频、音频生成任务，返回可接 API 的请求蓝图和本地 mock 输出
 - `GET /api/tasks` / `POST /api/tasks` / `PATCH /api/tasks/:id`：管理任务队列
 - `POST /api/projects`：创建首页项目记录
 - `POST /api/boards`：创建画布记录

@@ -57,6 +57,11 @@ const nextFinalButton = $("#nextFinalButton");
 const generateFinalButton = $("#generateFinalButton");
 const finalPreview = $("#finalPreview");
 const downloadFinalButton = $("#downloadFinalButton");
+const productionTitle = $("#productionTitle");
+const productionStageList = $("#productionStageList");
+const productionModelMap = $("#productionModelMap");
+const voiceoverList = $("#voiceoverList");
+const finalTimeline = $("#finalTimeline");
 
 // Asset step references and data
 const assetStep = $("#assetStep");
@@ -142,6 +147,8 @@ let modelSettingsState = {
   defaultRoles: {},
 };
 let agentRunState = [];
+let currentProduction = null;
+let currentOutputs = [];
 
 // Keep track of the current board title during editing
 let currentBoardTitle = "";
@@ -1132,6 +1139,196 @@ async function clearProviderKey(providerId) {
   }
 }
 
+function statusLabel(status) {
+  const labels = {
+    ready: "已就绪",
+    draft: "草稿",
+    waiting: "等待",
+    approved: "已批准",
+    generated: "已生成",
+    mock_ready: "本地模拟",
+    api_ready: "可接 API",
+    queued: "排队中",
+    completed: "已完成",
+  };
+  return labels[status] || status || "待处理";
+}
+
+function outputForFrame(frameId) {
+  return currentOutputs.find((output) => output.frameId === frameId);
+}
+
+function restoreProductions(productions = [], outputs = []) {
+  currentOutputs = Array.isArray(outputs) ? outputs : [];
+  if (!currentProduction && Array.isArray(productions) && productions.length) {
+    currentProduction = productions[0];
+  }
+  if (currentProduction) renderProduction(currentProduction);
+}
+
+function renderProduction(production, options = {}) {
+  if (!production) return;
+  currentProduction = production;
+  if (productionTitle) productionTitle.textContent = production.title || "未命名短剧";
+  renderProductionStages(production);
+  renderBeatSheet(production.beats || []);
+  renderStoryboardFrames(production.storyboard || []);
+  renderVoiceoverLines(production.voiceover || []);
+  renderFinalPlan(production);
+  if (options.step) showStep(options.step);
+}
+
+function renderProductionStages(production) {
+  if (productionStageList) {
+    productionStageList.innerHTML = (production.stages || [])
+      .map(
+        (stage) => `
+          <span class="production-stage ${escapeHtml(stage.status || "")}">
+            <strong>${escapeHtml(stage.title)}</strong>
+            <small>${statusLabel(stage.status)} · ${escapeHtml(stage.model || "模型")}</small>
+          </span>
+        `,
+      )
+      .join("");
+  }
+  if (productionModelMap) {
+    const roles = [
+      ["脚本", "script"],
+      ["图片", "image"],
+      ["视频", "video"],
+      ["音频", "audio"],
+    ];
+    productionModelMap.innerHTML = roles
+      .map(([label, role]) => {
+        const provider = modelSettingsState.modelProviders.find((item) => item.id === modelSettingsState.defaultRoles?.[role]);
+        return `<span><strong>${label}</strong><em>${escapeHtml(provider?.model || "待配置")}</em><small>${
+          provider?.hasKey ? "API 已配置" : "待填 API"
+        }</small></span>`;
+      })
+      .join("");
+  }
+}
+
+function renderBeatSheet(beats = []) {
+  if (!beatTableBody) return;
+  const rows = beats.length
+    ? beats
+    : [
+        { name: "开场/钩子", intensity: 7, duration: "15s", goal: "建立冲突", dialogue: "你以为我什么都不知道？" },
+        { name: "冲突升级", intensity: 8, duration: "30s", goal: "抬高情绪", dialogue: "今天，该轮到你付代价。" },
+      ];
+  beatTableBody.innerHTML = rows
+    .map(
+      (b) =>
+        `<tr><td>${escapeHtml(b.name)}</td><td>${escapeHtml(b.goal || "")}</td><td>${escapeHtml(
+          b.dialogue || "",
+        )}</td><td>${escapeHtml(String(b.intensity || ""))}</td><td>${escapeHtml(b.duration || "")}</td></tr>`,
+    )
+    .join("");
+}
+
+function renderStoryboardFrames(frames = []) {
+  if (!storyboardGrid) return;
+  storyboardGrid.innerHTML = "";
+  const fallbackFrames = Array.from({ length: 8 }, (_, index) => ({
+    id: `frame-${index + 1}`,
+    title: `Shot ${String(index + 1).padStart(2, "0")}`,
+    prompt: "电影感竖屏短剧分镜，统一角色与场景参考。",
+    camera: index % 2 ? "低角度对峙" : "中近景推轨",
+    status: "draft",
+    imageUrl: `https://picsum.photos/seed/storyboard-${index}/360/640`,
+  }));
+  (frames.length ? frames : fallbackFrames).forEach((frame, index) => {
+    const output = outputForFrame(frame.id);
+    const div = document.createElement("article");
+    div.className = "storyboard-card";
+    div.dataset.frameIndex = index.toString();
+    div.dataset.frameId = frame.id;
+    const imageUrl = output?.url || frame.imageUrl || `https://picsum.photos/seed/${encodeURIComponent(frame.id)}/360/640`;
+    div.innerHTML = `
+      <div class="storyboard-thumb" style="background-image:url('${escapeHtml(imageUrl)}')">
+        <span>${escapeHtml(statusLabel(output?.status || frame.status))}</span>
+      </div>
+      <div class="storyboard-copy">
+        <strong>${escapeHtml(frame.title || `Shot ${index + 1}`)}</strong>
+        <p>${escapeHtml(frame.prompt || "")}</p>
+        <small>${escapeHtml(frame.camera || "镜头待定")} · ${escapeHtml(frame.duration || "5s")}</small>
+      </div>
+      <div class="frame-overlay">
+        <button class="frame-action" data-action="reroll" data-frame-index="${index}" data-icon="refresh-cw" title="重绘"></button>
+        <button class="frame-action" data-action="approve" data-frame-index="${index}" data-icon="check" title="批准"></button>
+        <button class="frame-action" data-action="video" data-frame-index="${index}" data-icon="clapperboard" title="图转视频"></button>
+        <button class="frame-action" data-action="canvas" data-frame-index="${index}" data-icon="layout-dashboard" title="加入画布"></button>
+      </div>
+    `;
+    storyboardGrid.appendChild(div);
+  });
+  hydrateIcons();
+}
+
+function renderVoiceoverLines(lines = []) {
+  if (!voiceoverList) return;
+  const fallback = lines.length
+    ? lines
+    : [{ id: "line-1", timecode: "00:00", speaker: "女主", text: "你以为我什么都不知道？", caption: "你以为我什么都不知道？" }];
+  voiceoverList.innerHTML = fallback
+    .map(
+      (line) => `
+        <article>
+          <span>${escapeHtml(line.timecode || "00:00")}</span>
+          <strong>${escapeHtml(line.speaker || "旁白")}</strong>
+          <p>${escapeHtml(line.text || line.caption || "")}</p>
+          <small>${statusLabel(line.status)}</small>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderFinalPlan(production) {
+  if (!finalTimeline || !production) return;
+  const frames = production.storyboard || [];
+  finalTimeline.innerHTML = `
+    <div class="final-summary">
+      <strong>${escapeHtml(production.finalPlan?.resolution || "1080p")} · ${escapeHtml(production.finalPlan?.format || "9:16")}</strong>
+      <span>${escapeHtml(production.finalPlan?.videoModel || "Seedance2.0")} · ${escapeHtml(production.finalPlan?.estimatedDuration || "约 2 分钟")}</span>
+    </div>
+    ${frames
+      .slice(0, 8)
+      .map(
+        (frame, index) => `
+          <div class="timeline-row">
+            <span>${String(index + 1).padStart(2, "0")}</span>
+            <strong>${escapeHtml(frame.title || `Shot ${index + 1}`)}</strong>
+            <em>${escapeHtml(frame.videoStatus || "not_started")}</em>
+          </div>
+        `,
+      )
+      .join("")}
+  `;
+}
+
+async function prepareDramaProduction(title, story = "") {
+  const payload = {
+    title: title || currentProjectTitle || "未命名短剧",
+    story: story || storyInput?.value?.trim() || currentProjectTitle || "",
+    ratio: ratioSelect?.value || "9:16",
+    resolution: resolutionSelect?.value || "1080p",
+  };
+  const data = await apiJson("/api/drama/prepare", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (!data?.production) return null;
+  if (data.settings) restoreSettings(data.settings);
+  restoreAssets(data.assets);
+  currentOutputs = data.outputs || currentOutputs;
+  renderProduction(data.production, { step: "asset" });
+  if (Array.isArray(data.allTasks)) mergeBackendTasks(data.allTasks);
+  showToast("生产链路已准备好");
+  return data.production;
+}
+
 function canvasNodeState(node) {
   if (!node) return null;
   const type = node.dataset.canvasType || node.dataset.canvasNode || "node";
@@ -1274,6 +1471,7 @@ async function loadStudioState() {
   restoreAgentMessages(data.agentMessages);
   restoreSettings(data.settings);
   restoreAgentRuns(data.agentRuns);
+  restoreProductions(data.productions, data.outputs);
 }
 
 function findTask(taskId) {
@@ -2031,6 +2229,7 @@ function handleProjectMenuAction(button) {
   if (action === "open") {
     closeToolOverlay();
     showWorkflowSection(title.slice(0, 28));
+    prepareDramaProduction(title.slice(0, 28), title);
     showToast("已打开项目工作流");
     return;
   }
@@ -2112,6 +2311,7 @@ async function simulateGeneration() {
     addTask(`${baseTitle} 视频任务`);
     // 展开剧情制作工作流界面并保存当前项目标题
     showWorkflowSection(baseTitle);
+    await prepareDramaProduction(baseTitle, storyInput.value.trim());
   } catch (err) {
     console.error("Failed to add task:", err);
   }
@@ -2135,8 +2335,10 @@ function wait(ms) {
 function showWorkflowSection(title) {
   if (!workflowSection) return;
   currentProjectTitle = title || "未命名短剧";
+  currentProduction = null;
   // Reset final preview visibility
   if (finalPreview) finalPreview.classList.add("hidden");
+  if (productionTitle) productionTitle.textContent = currentProjectTitle;
   // Reveal the workflow container
   workflowSection.classList.remove("hidden");
   // Show first step (asset management) and hide others
@@ -2146,6 +2348,10 @@ function showWorkflowSection(title) {
   scenesData.length = 0;
   renderCharacterList();
   renderSceneList();
+  renderProductionStages({ title: currentProjectTitle, stages: [] });
+  renderBeatSheet([]);
+  renderStoryboardFrames([]);
+  renderVoiceoverLines([]);
   persistWorkflowEvent("project-open", { title: currentProjectTitle });
 }
 
@@ -2173,25 +2379,8 @@ function showStep(name) {
  * Populate the beat sheet table with a predefined set of beats.
  */
 function createBeatSheet() {
-  if (!beatTableBody) return;
-  const beats = [
-    { name: "开场/勾子", intensity: 7, duration: "15s" },
-    { name: "冲突升级", intensity: 8, duration: "30s" },
-    { name: "第一反转", intensity: 6, duration: "25s" },
-    { name: "情绪堆叠", intensity: 7, duration: "30s" },
-    { name: "高潮", intensity: 9, duration: "20s" },
-    { name: "悬念", intensity: 8, duration: "15s" },
-    { name: "反转", intensity: 10, duration: "25s" },
-    { name: "结局", intensity: 5, duration: "20s" },
-  ];
-  beatTableBody.innerHTML = beats
-    .map(
-      (b) =>
-        `<tr><td>${escapeHtml(b.name)}</td><td>${escapeHtml(
-          b.intensity.toString(),
-        )}</td><td>${escapeHtml(b.duration)}</td></tr>`,
-    )
-    .join("");
+  const beats = currentProduction?.beats || [];
+  renderBeatSheet(beats);
   persistWorkflowEvent("beat-sheet", { beats });
 }
 
@@ -2199,38 +2388,9 @@ function createBeatSheet() {
  * Generate a basic storyboard with placeholder images.
  */
 function createStoryboard() {
-  if (!storyboardGrid) return;
-  storyboardGrid.innerHTML = "";
-  const frames = 8;
-  for (let i = 0; i < frames; i++) {
-    const div = document.createElement("div");
-    div.className = "frame";
-    div.style.backgroundImage = `url('https://picsum.photos/seed/storyboard-${i}/200/120')`;
-    // Create overlay with frame actions
-    const overlay = document.createElement("div");
-    overlay.className = "frame-overlay";
-    const actions = [
-      { action: "reroll", icon: "refresh-cw" },
-      { action: "inpaint", icon: "brush" },
-      { action: "relight", icon: "sun" },
-      { action: "upscale", icon: "maximize-2" },
-    ];
-    actions.forEach(({ action, icon }) => {
-      const btn = document.createElement("button");
-      btn.className = "frame-action";
-      btn.setAttribute("data-action", action);
-      btn.setAttribute("data-frame-index", i.toString());
-      // Insert lucide icon placeholder; hydrateIcons will convert later
-      const iElem = document.createElement("i");
-      iElem.setAttribute("data-icon", icon);
-      btn.appendChild(iElem);
-      overlay.appendChild(btn);
-    });
-    div.appendChild(overlay);
-    storyboardGrid.appendChild(div);
-  }
-  hydrateIcons();
-  persistWorkflowEvent("storyboard", { frames });
+  const frames = currentProduction?.storyboard || [];
+  renderStoryboardFrames(frames);
+  persistWorkflowEvent("storyboard", { frames: frames.length || 8 });
 }
 
 function openAssetOverlay(type) {
@@ -2291,9 +2451,20 @@ function submitAssetOverlay(button) {
   });
   persistWorkflowEvent("asset", { type, name, description });
   if (button.dataset.generateReference === "true") {
-    addTask(`${name} ${type === "character" ? "角色参考图" : "场景参考图"}`, {
-      source: "asset",
-      note: "gpt-image-2",
+    apiJson("/api/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        kind: "image",
+        title: `${name} ${type === "character" ? "角色参考图" : "场景参考图"}`,
+        taskTitle: `${name} ${type === "character" ? "角色参考图" : "场景参考图"}`,
+        prompt: description,
+        source: "asset",
+        productionId: currentProduction?.id || "",
+        referenceIds: [asset.id],
+      }),
+    }).then((data) => {
+      if (Array.isArray(data?.allTasks)) mergeBackendTasks(data.allTasks);
+      if (Array.isArray(data?.outputs)) currentOutputs = data.outputs;
     });
   }
   closeToolOverlay();
@@ -2311,9 +2482,20 @@ function handleAssetListAction(event) {
   const asset = assetCollection(type).find((item) => item.id === button.dataset.assetId);
   if (!asset) return;
   if (button.dataset.assetAction === "reference") {
-    addTask(`${asset.name} ${type === "character" ? "角色参考图" : "场景参考图"}`, {
-      source: "asset",
-      note: "gpt-image-2",
+    apiJson("/api/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        kind: "image",
+        title: `${asset.name} ${type === "character" ? "角色参考图" : "场景参考图"}`,
+        taskTitle: `${asset.name} ${type === "character" ? "角色参考图" : "场景参考图"}`,
+        prompt: asset.prompt || asset.description,
+        source: "asset",
+        productionId: currentProduction?.id || "",
+        referenceIds: [asset.id],
+      }),
+    }).then((data) => {
+      if (Array.isArray(data?.allTasks)) mergeBackendTasks(data.allTasks);
+      if (Array.isArray(data?.outputs)) currentOutputs = data.outputs;
     });
     showToast("参考图任务已创建");
   }
@@ -2597,6 +2779,7 @@ projectGrid.addEventListener("click", (event) => {
   if (projectCard) {
     const title = projectCard.querySelector("h3, strong")?.textContent?.trim() || "未命名短剧";
     showWorkflowSection(title.slice(0, 28));
+    prepareDramaProduction(title.slice(0, 28), title);
     showToast("已打开项目工作流");
   }
 });
@@ -2973,6 +3156,24 @@ if (nextVoiceoverButton) {
     if (currentProjectTitle) {
       addTask(`${currentProjectTitle} 故事板`);
     }
+    if (currentProduction) {
+      renderVoiceoverLines(currentProduction.voiceover || []);
+      apiJson("/api/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "audio",
+          title: `${currentProduction.title} 配音字幕`,
+          taskTitle: `${currentProduction.title} 配音字幕`,
+          prompt: (currentProduction.voiceover || []).map((line) => line.text).join("\n"),
+          transcript: (currentProduction.voiceover || []).map((line) => `${line.speaker}：${line.text}`).join("\n"),
+          source: "voiceover",
+          productionId: currentProduction.id,
+        }),
+      }).then((data) => {
+        if (Array.isArray(data?.allTasks)) mergeBackendTasks(data.allTasks);
+        if (Array.isArray(data?.outputs)) currentOutputs = data.outputs;
+      });
+    }
     persistWorkflowEvent("voiceover-started", {
       voice: voiceSelect?.value || "female",
       captions: !!captionToggle?.checked,
@@ -2986,6 +3187,7 @@ if (nextFinalButton) {
     if (currentProjectTitle) {
       addTask(`${currentProjectTitle} 配音字幕`);
     }
+    if (currentProduction) renderFinalPlan(currentProduction);
     persistWorkflowEvent("final-video-started", {
       music: $("#musicSelect")?.value || "none",
       videoModel: "Seedance 2.0",
@@ -2998,6 +3200,31 @@ if (generateFinalButton) {
   generateFinalButton.addEventListener("click", () => {
     if (currentProjectTitle) {
       addTask(`${currentProjectTitle} 最终视频`);
+    }
+    if (currentProduction) {
+      apiJson("/api/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "video",
+          title: `${currentProduction.title} 最终视频`,
+          taskTitle: `${currentProduction.title} 最终视频`,
+          prompt: (currentProduction.storyboard || []).map((frame) => frame.prompt).join("\n"),
+          source: "final",
+          productionId: currentProduction.id,
+          ratio: ratioSelect?.value || currentProduction.aspectRatio || "9:16",
+          duration: 8,
+          referenceIds: [
+            ...(currentProduction.assets?.characterIds || []),
+            ...(currentProduction.assets?.sceneIds || []),
+          ],
+        }),
+      }).then((data) => {
+        if (Array.isArray(data?.allTasks)) mergeBackendTasks(data.allTasks);
+        if (Array.isArray(data?.outputs)) currentOutputs = data.outputs;
+        const latest = data?.productions?.find((item) => item.id === currentProduction.id);
+        if (latest) renderProduction(latest, { step: "final" });
+      });
+      renderFinalPlan(currentProduction);
     }
     persistWorkflowEvent("final-export", {
       resolution: resolutionSelect?.value || "720p",
@@ -3025,6 +3252,9 @@ const frameActionLabels = {
   inpaint: "修补",
   relight: "重光",
   upscale: "放大",
+  approve: "批准",
+  video: "图转视频",
+  canvas: "加入画布",
 };
 
 /**
@@ -3034,11 +3264,53 @@ const frameActionLabels = {
  */
 function handleFrameAction(action, index) {
   const label = frameActionLabels[action] || action;
+  const frame = currentProduction?.storyboard?.[index];
+  if (action === "approve" && frame) {
+    frame.status = "approved";
+    renderStoryboardFrames(currentProduction.storyboard);
+    persistWorkflowEvent("frame-approved", { frameId: frame.id, index });
+    showToast("分镜已批准");
+    return;
+  }
+  if (action === "canvas" && frame) {
+    createCanvasNode("image", frame.title || `Shot ${index + 1}`);
+    switchView("board", "分镜已加入画布");
+    return;
+  }
+  if ((action === "reroll" || action === "inpaint" || action === "relight" || action === "upscale" || action === "video") && frame) {
+    const kind = action === "video" ? "video" : "storyboard";
+    apiJson("/api/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        kind,
+        title: `${frame.title} ${label}`,
+        taskTitle: `${currentProduction.title} - ${frame.title} ${label}`,
+        prompt: frame.prompt,
+        source: "storyboard",
+        productionId: currentProduction.id,
+        frameId: frame.id,
+        seed: `${currentProduction.id}-${frame.id}-${action}`,
+        referenceIds: [
+          ...(currentProduction.assets?.characterIds || []),
+          ...(currentProduction.assets?.sceneIds || []),
+        ],
+      }),
+    }).then((data) => {
+      if (Array.isArray(data?.allTasks)) mergeBackendTasks(data.allTasks);
+      if (Array.isArray(data?.outputs)) currentOutputs = data.outputs;
+      const latest = data?.productions?.find((item) => item.id === currentProduction.id);
+      if (latest) renderProduction(latest, { step: "storyboard" });
+    });
+    showToast(`${label} 任务已创建`);
+    persistWorkflowEvent("frame-action", { action, index, frameId: frame.id });
+    return;
+  }
   showToast(`${label} 任务已创建`);
   if (currentProjectTitle) {
     addTask(`${currentProjectTitle} 故事板帧${index + 1} ${label}`, {
       source: "storyboard",
       note: action === "upscale" ? "gpt-image-2" : "编辑",
+      persist: !frame,
     });
   }
   persistWorkflowEvent("frame-action", { action, index });
@@ -3174,20 +3446,28 @@ function openToolOverlay(toolId) {
       const taskName = currentProjectTitle
         ? `${currentProjectTitle} ${meta.title}`
         : meta.title;
-      apiJson("/api/tools/run", {
+      const kind = toolId.startsWith("video") ? "video" : toolId.startsWith("audio") ? "audio" : "image";
+      apiJson("/api/generate", {
         method: "POST",
         body: JSON.stringify({
+          kind,
           title: taskName,
+          taskTitle: taskName,
           toolId,
           toolTitle: meta.title,
           prompt: userPrompt,
-          model: toolId.startsWith("video") ? "Seedance 2.0" : "gpt-image-2",
+          source: "tool",
+          productionId: currentProduction?.id || "",
         }),
       }).then((data) => {
         if (data?.task) {
-          tasks.unshift(data.task);
-          renderTaskTable();
-          renderStatusGrid();
+          if (Array.isArray(data.allTasks)) mergeBackendTasks(data.allTasks);
+          else {
+            tasks.unshift(data.task);
+            renderTaskTable();
+            renderStatusGrid();
+          }
+          if (Array.isArray(data.outputs)) currentOutputs = data.outputs;
         } else {
           addTask(taskName, {
             source: "tool",

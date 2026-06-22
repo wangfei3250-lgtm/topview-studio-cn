@@ -151,6 +151,8 @@ const defaultState = {
   projects: [],
   tasks: [],
   boards: [],
+  productions: [],
+  outputs: [],
   assets: {
     characters: [],
     scenes: [],
@@ -186,6 +188,8 @@ function ensureStateShape(input) {
   state.projects = Array.isArray(state.projects) ? state.projects : [];
   state.tasks = Array.isArray(state.tasks) ? state.tasks : [];
   state.boards = Array.isArray(state.boards) ? state.boards : [];
+  state.productions = Array.isArray(state.productions) ? state.productions : [];
+  state.outputs = Array.isArray(state.outputs) ? state.outputs : [];
   state.assets = {
     ...clone(defaultState.assets),
     ...(state.assets || {}),
@@ -376,6 +380,8 @@ function createTask(item) {
     stepId: item.stepId || "",
     kind: item.kind || "",
     model: item.model || "",
+    outputId: item.outputId || "",
+    productionId: item.productionId || "",
     payload: item.payload || {},
     createdAt: item.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -440,6 +446,258 @@ function addWorkflowEvent(payload) {
   state.workflowRuns.unshift(event);
   saveState();
   return event;
+}
+
+function summarizeText(text, fallback = "未命名短剧") {
+  const clean = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return clean ? clean.slice(0, 28) : fallback;
+}
+
+function providerForKind(kind) {
+  if (kind === "video") return resolveModel("video");
+  if (kind === "audio" || kind === "voiceover" || kind === "caption") return resolveModel("audio");
+  if (kind === "script" || kind === "beat") return resolveModel("script");
+  if (kind === "agent") return resolveModel("agent");
+  return resolveModel("image");
+}
+
+function requestPathForRole(role) {
+  const paths = {
+    agent: "/chat/completions",
+    script: "/chat/completions",
+    image: "/images/generations",
+    video: "/videos/generations",
+    audio: "/audio/speech",
+  };
+  return paths[role] || "/generations";
+}
+
+function buildRequestBlueprint(kind, payload = {}) {
+  const modelInfo = providerForKind(kind);
+  const endpoint = modelInfo.baseUrl ? `${modelInfo.baseUrl.replace(/\/$/, "")}${requestPathForRole(modelInfo.role)}` : "";
+  return {
+    mode: modelInfo.hasKey && endpoint ? "api-ready" : "mock-until-api",
+    role: modelInfo.role,
+    providerId: modelInfo.providerId,
+    providerName: modelInfo.providerName,
+    model: modelInfo.model,
+    endpoint,
+    method: "POST",
+    needsApiKey: true,
+    hasKey: modelInfo.hasKey,
+    headers: {
+      Authorization: modelInfo.hasKey ? "Bearer ***" : "Bearer <API_KEY>",
+      "Content-Type": "application/json",
+    },
+    body: {
+      model: modelInfo.model,
+      prompt: payload.prompt || payload.title || "",
+      size: payload.size || (kind === "image" || kind === "storyboard" ? "1024x1536" : undefined),
+      ratio: payload.ratio || "9:16",
+      duration: payload.duration || (kind === "video" ? 5 : undefined),
+      referenceIds: payload.referenceIds || [],
+    },
+  };
+}
+
+function createMediaOutput(payload = {}) {
+  const kind = String(payload.kind || "image");
+  const title = String(payload.title || "媒体输出");
+  const blueprint = buildRequestBlueprint(kind, payload);
+  const output = {
+    id: payload.id || makeId("output"),
+    kind,
+    title,
+    prompt: String(payload.prompt || ""),
+    status: blueprint.mode === "api-ready" ? "api_ready" : "mock_ready",
+    model: blueprint.model,
+    providerId: blueprint.providerId,
+    providerName: blueprint.providerName,
+    productionId: payload.productionId || "",
+    frameId: payload.frameId || "",
+    url:
+      kind === "image" || kind === "storyboard"
+        ? `https://picsum.photos/seed/${encodeURIComponent(payload.seed || title)}/720/1280`
+        : "",
+    posterUrl:
+      kind === "video"
+        ? `https://picsum.photos/seed/${encodeURIComponent(payload.seed || title)}-poster/720/1280`
+        : "",
+    transcript: payload.transcript || "",
+    requestBlueprint: blueprint,
+    createdAt: payload.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  state.outputs.unshift(output);
+  state.outputs = state.outputs.slice(0, 240);
+  return output;
+}
+
+function buildDefaultAssets(title, story) {
+  const seed = summarizeText(`${title} ${story}`, title);
+  return {
+    characters: [
+      {
+        type: "character",
+        name: "女主",
+        description: `${seed}的核心人物，外表克制，眼神有压抑后的决断感，服装统一，适合作为多镜头参考。`,
+        prompt: "cinematic vertical drama heroine, consistent character reference, clean costume, emotional restraint",
+      },
+      {
+        type: "character",
+        name: "对手",
+        description: "制造冲突的人物，气质强势，表情有压迫感，用于反转和对峙镜头。",
+        prompt: "cinematic antagonist reference, sharp expression, modern drama lighting",
+      },
+    ],
+    scenes: [
+      {
+        type: "scene",
+        name: "雨夜街道",
+        description: "湿润柏油路、霓虹反光、远处车灯，适合悬疑开场和情绪爆发。",
+        prompt: "rainy night street, neon reflection, cinematic suspense, vertical frame",
+      },
+      {
+        type: "scene",
+        name: "冷色室内",
+        description: "玻璃、暗灰墙面、单点顶光，适合秘密揭露、对话、反转。",
+        prompt: "cold interior, glass wall, dramatic top light, short drama scene",
+      },
+    ],
+  };
+}
+
+function buildBeatSheet(title, story) {
+  const hook = summarizeText(story, title);
+  return [
+    { id: "beat-1", name: "开场钩子", intensity: 8, duration: "12s", goal: `用一句强冲突台词切入：${hook}`, dialogue: "你以为我什么都不知道？" },
+    { id: "beat-2", name: "关系建立", intensity: 6, duration: "18s", goal: "交代人物关系和表面目标", dialogue: "今天之后，我们就再也不是从前的关系。" },
+    { id: "beat-3", name: "证据出现", intensity: 7, duration: "20s", goal: "抛出关键物证或信息差", dialogue: "这张照片，是你亲手留下的。" },
+    { id: "beat-4", name: "第一次反击", intensity: 8, duration: "18s", goal: "主角从被动转主动", dialogue: "轮到你回答我了。" },
+    { id: "beat-5", name: "公开羞辱", intensity: 9, duration: "22s", goal: "让矛盾进入公开场合", dialogue: "各位，都听清楚了吗？" },
+    { id: "beat-6", name: "情绪坠落", intensity: 7, duration: "16s", goal: "给观众共情和人物伤口", dialogue: "我忍到今天，不是为了原谅。" },
+    { id: "beat-7", name: "最终反转", intensity: 10, duration: "20s", goal: "揭露真正底牌", dialogue: "你最大的靠山，早就是我的证人。" },
+    { id: "beat-8", name: "悬念收尾", intensity: 8, duration: "12s", goal: "留下下一集钩子", dialogue: "游戏，现在才开始。" },
+  ];
+}
+
+function buildStoryboardFrames(title, beats, assets) {
+  return beats.map((beat, index) => {
+    const scene = assets.scenes[index % assets.scenes.length]?.name || "主场景";
+    const character = assets.characters[index % assets.characters.length]?.name || "主角";
+    const frameTitle = `Shot ${String(index + 1).padStart(2, "0")} · ${beat.name}`;
+    return {
+      id: `frame-${index + 1}`,
+      title: frameTitle,
+      beatId: beat.id,
+      scene,
+      character,
+      status: index < 2 ? "approved" : "draft",
+      prompt: `${frameTitle}，${character}在${scene}，${beat.goal}，9:16竖屏，电影感构图，统一角色与场景参考。`,
+      camera: index % 3 === 0 ? "中近景推轨" : index % 3 === 1 ? "低角度对峙" : "手持跟拍",
+      duration: beat.duration,
+      imageUrl: `https://picsum.photos/seed/${encodeURIComponent(`${title}-${index}`)}/360/640`,
+      videoStatus: "not_started",
+    };
+  });
+}
+
+function buildVoiceover(beats) {
+  return beats.map((beat, index) => ({
+    id: `line-${index + 1}`,
+    timecode: `00:${String(index * 7).padStart(2, "0")}`,
+    speaker: index % 2 === 0 ? "女主" : "旁白",
+    text: beat.dialogue,
+    caption: beat.dialogue,
+    status: "draft",
+  }));
+}
+
+function createDramaProduction(payload = {}) {
+  const title = String(payload.title || summarizeText(payload.story || payload.prompt || "", "未命名短剧"));
+  const story = String(payload.story || payload.prompt || "");
+  const generatedAssets = buildDefaultAssets(title, story);
+  const existingAssets = {
+    characters: Array.isArray(payload.characters) && payload.characters.length ? payload.characters : generatedAssets.characters,
+    scenes: Array.isArray(payload.scenes) && payload.scenes.length ? payload.scenes : generatedAssets.scenes,
+  };
+  const savedAssets = {
+    characters: existingAssets.characters.map((item) => createAsset("character", item)),
+    scenes: existingAssets.scenes.map((item) => createAsset("scene", item)),
+  };
+  const beats = buildBeatSheet(title, story);
+  const storyboard = buildStoryboardFrames(title, beats, savedAssets);
+  const voiceover = buildVoiceover(beats);
+  const production = {
+    id: payload.id || makeId("prod"),
+    title,
+    story,
+    status: "draft_ready",
+    aspectRatio: payload.ratio || "9:16",
+    resolution: payload.resolution || "1080p",
+    stages: [
+      { id: "assets", title: "角色与场景", status: "ready", model: resolveModel("image").model },
+      { id: "beats", title: "剧情节奏", status: "ready", model: resolveModel("script").model },
+      { id: "storyboard", title: "分镜图", status: "ready", model: resolveModel("image").model },
+      { id: "voiceover", title: "配音字幕", status: "draft", model: resolveModel("audio").model },
+      { id: "video", title: "最终视频", status: "waiting", model: resolveModel("video").model },
+    ],
+    assets: {
+      characterIds: savedAssets.characters.map((item) => item.id),
+      sceneIds: savedAssets.scenes.map((item) => item.id),
+    },
+    beats,
+    storyboard,
+    voiceover,
+    finalPlan: {
+      format: payload.ratio || "9:16",
+      resolution: payload.resolution || "1080p",
+      videoModel: resolveModel("video").model,
+      music: payload.music || "suspense",
+      estimatedDuration: "138s",
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const taskSpecs = [
+    ["脚本拆解与节拍", "script", resolveModel("script").model],
+    ["角色场景参考图", "image", resolveModel("image").model],
+    ["8 张分镜图", "storyboard", resolveModel("image").model],
+    ["配音字幕草稿", "audio", resolveModel("audio").model],
+    ["竖屏成片合成", "video", resolveModel("video").model],
+  ];
+  const tasks = taskSpecs.map(([label, kind, model], index) =>
+    createTask({
+      title: `${title} - ${label}`,
+      status: index < 3 ? "completed" : "queued",
+      note: model,
+      source: "production",
+      kind,
+      model,
+      productionId: production.id,
+      payload: {
+        blueprint: buildRequestBlueprint(kind, { title, prompt: story, ratio: production.aspectRatio }),
+      },
+    }),
+  );
+  production.taskIds = tasks.map((task) => task.id);
+  state.productions.unshift(production);
+  state.productions = state.productions.slice(0, 80);
+  addWorkflowEvent({
+    projectTitle: title,
+    step: "production-prepared",
+    status: "completed",
+    detail: {
+      productionId: production.id,
+      frames: storyboard.length,
+      characters: savedAssets.characters.length,
+      scenes: savedAssets.scenes.length,
+    },
+  });
+  saveState();
+  return { production, tasks, assets: state.assets };
 }
 
 function stepKind(label) {
@@ -769,6 +1027,81 @@ function handleApi(req, res, pathname) {
         return;
       }
       sendJson(res, 201, createAgentExecution(payload));
+    });
+    return true;
+  }
+
+  if (pathname === "/api/productions" && req.method === "GET") {
+    sendJson(res, 200, { productions: state.productions, outputs: state.outputs });
+    return true;
+  }
+
+  if (pathname === "/api/drama/prepare" && req.method === "POST") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      const result = createDramaProduction(payload);
+      sendJson(res, 201, {
+        ...result,
+        productions: state.productions,
+        outputs: state.outputs,
+        allTasks: state.tasks,
+        settings: publicSettings(),
+      });
+    });
+    return true;
+  }
+
+  if (pathname === "/api/generate" && req.method === "POST") {
+    readJson(req, (error, payload) => {
+      if (error) {
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
+      }
+      const kind = String(payload.kind || "image");
+      const output = createMediaOutput(payload);
+      const task = createTask({
+        title: payload.taskTitle || payload.title || "生成任务",
+        status: output.status === "api_ready" ? "queued" : "completed",
+        note: output.model,
+        source: payload.source || "generate",
+        kind,
+        model: output.model,
+        outputId: output.id,
+        productionId: payload.productionId || "",
+        payload: {
+          frameId: payload.frameId || "",
+          requestBlueprint: output.requestBlueprint,
+        },
+      });
+      const production = state.productions.find((item) => item.id === payload.productionId);
+      if (production && payload.frameId) {
+        const frame = production.storyboard.find((item) => item.id === payload.frameId);
+        if (frame) {
+          frame.outputId = output.id;
+          frame.videoStatus = kind === "video" ? "queued" : frame.videoStatus;
+          frame.status = kind === "storyboard" || kind === "image" ? "generated" : frame.status;
+          frame.updatedAt = new Date().toISOString();
+        }
+        production.updatedAt = new Date().toISOString();
+      }
+      addWorkflowEvent({
+        projectTitle: production?.title || payload.projectTitle || "未命名短剧",
+        step: `${kind}-generate`,
+        status: output.status,
+        detail: { outputId: output.id, taskId: task.id, productionId: payload.productionId || "" },
+      });
+      saveState();
+      sendJson(res, 201, {
+        output,
+        task,
+        outputs: state.outputs,
+        productions: state.productions,
+        allTasks: state.tasks,
+        settings: publicSettings(),
+      });
     });
     return true;
   }

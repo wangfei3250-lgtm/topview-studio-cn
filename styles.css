@@ -80,6 +80,67 @@
   background: #0f1014;
 }
 
+.production-console {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid rgba(35, 216, 162, 0.16);
+  border-radius: 10px;
+  background: rgba(35, 216, 162, 0.045);
+}
+
+.production-console > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.production-console span,
+.production-console small,
+.production-model-map small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.production-stage-list,
+.production-model-map {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.production-stage,
+.production-model-map span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.production-stage.ready,
+.production-stage.completed {
+  border-color: rgba(35, 216, 162, 0.26);
+}
+
+.production-stage strong,
+.production-model-map strong,
+.production-model-map em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-model-map em {
+  color: #f4f5f6;
+  font-style: normal;
+  font-size: 12px;
+}
+
 /* Each step within the workflow */
 .workflow-step {
   margin-bottom: 24px;
@@ -115,7 +176,7 @@
 .storyboard-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   margin-bottom: 20px;
 }
 
@@ -127,6 +188,50 @@
   background-size: cover;
   background-position: center;
   position: relative;
+}
+
+.storyboard-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #17181d;
+}
+
+.storyboard-thumb {
+  position: relative;
+  min-height: 210px;
+  background-position: center;
+  background-size: cover;
+}
+
+.storyboard-thumb span {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.68);
+  color: #fff;
+  font-size: 11px;
+}
+
+.storyboard-copy {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+}
+
+.storyboard-copy strong {
+  font-size: 13px;
+}
+
+.storyboard-copy p,
+.storyboard-copy small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.42;
 }
 
 /* Overlay controls on each storyboard frame */
@@ -176,6 +281,35 @@
   font-size: 14px;
 }
 
+.voiceover-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.voiceover-list article {
+  display: grid;
+  grid-template-columns: 54px 70px minmax(0, 1fr) 64px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: #17181d;
+}
+
+.voiceover-list span,
+.voiceover-list small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.voiceover-list p {
+  margin: 0;
+  color: #f2f3f4;
+  font-size: 13px;
+}
+
 /* Compact generate buttons within the workflow */
 .generate-button.small {
   font-size: 13px;
@@ -190,6 +324,37 @@
   border: 1px dashed rgba(255, 255, 255, 0.2);
   border-radius: 10px;
   text-align: center;
+}
+
+.final-timeline {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.final-summary,
+.timeline-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 92px;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.final-summary {
+  grid-template-columns: minmax(0, 1fr) auto;
+  background: rgba(35, 216, 162, 0.08);
+}
+
+.final-summary span,
+.timeline-row span,
+.timeline-row em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 12px;
 }
 
 /* Download button styling */
@@ -3180,6 +3345,14 @@ h2 span {
   .task-table div {
     grid-template-columns: 1fr;
     gap: 6px;
+  }
+
+  .production-stage-list,
+  .production-model-map,
+  .voiceover-list article,
+  .timeline-row,
+  .final-summary {
+    grid-template-columns: 1fr;
   }
 
   .settings-default-grid,
