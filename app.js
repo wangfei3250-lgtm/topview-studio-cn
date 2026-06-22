@@ -12,6 +12,7 @@ const writerPopover = $("#writerPopover");
 const toast = $("#toast");
 const railItems = $$(".rail-item");
 const moduleViews = $$(".module-view");
+const viewNames = new Set(moduleViews.map((module) => module.dataset.view).filter(Boolean));
 const agentPickerButton = $("#agentPickerButton");
 const agentPickerMenu = $("#agentPickerMenu");
 const selectedAgentName = $("#selectedAgentName");
@@ -35,6 +36,10 @@ const agentSendButton = $("#agentSendButton");
 const backendSettingsButtons = $$("[data-open-backend-settings]");
 const openSourceButtons = $$("[data-open-source-library]");
 const agentRunList = $("#agentRunList");
+const factoryFrame = $("#factoryFrame");
+const factoryPrompt = $("#factoryPrompt");
+const factoryLaunch = $("#factoryLaunch");
+const factoryModeButtons = $$("[data-factory-mode]");
 
 // --- Workflow Pipeline State ---
 // Keep track of the current project title for tasks and pipeline steps
@@ -1823,14 +1828,59 @@ function restoreComfySettings(comfy) {
   setComfyStatus(comfySettingsState.lastStatus === "已连接", comfySettingsState.lastStatus || "未检测");
 }
 
-function switchView(view, message) {
-  if (!view) return;
+function switchView(view, message, options = {}) {
+  if (!view || !viewNames.has(view)) return;
   railItems.forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   moduleViews.forEach((module) => module.classList.toggle("active", module.dataset.view === view));
   writerPopover.classList.remove("open");
   writerPopover.setAttribute("aria-hidden", "true");
+  if (options.updateHash !== false) {
+    const nextHash = view === "home" ? "#/" : `#/${view}`;
+    if (window.location.hash !== nextHash) history.replaceState(null, "", nextHash);
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (message) showToast(message);
+}
+
+function viewFromHash() {
+  const view = window.location.hash.replace(/^#\/?/, "") || "home";
+  return viewNames.has(view) ? view : "home";
+}
+
+function syncViewFromHash() {
+  switchView(viewFromHash(), null, { updateHash: false });
+}
+
+function setFactoryPrompt(text) {
+  if (!factoryPrompt || !text) return;
+  factoryPrompt.value = text;
+}
+
+function setActiveFactoryMode(button) {
+  factoryModeButtons.forEach((item) => item.classList.toggle("active", item === button));
+}
+
+function setFactoryFrameRoute(route, message = "爆款工厂已打开") {
+  if (factoryFrame && route) factoryFrame.src = route;
+  document.querySelectorAll("[data-factory-route]").forEach((item) => item.classList.toggle("active", item.dataset.factoryRoute === route));
+  switchView("factory", message);
+}
+
+function buildFactoryLaunchRoute() {
+  const prompt = factoryPrompt?.value.trim() || "";
+  const activeMode = $(".factory-canvas-tabs button.active");
+  const params = new URLSearchParams();
+  const urlMatch = prompt.match(/https?:\/\/[^\s，。；;]+/i);
+  if (urlMatch) {
+    params.set("url", urlMatch[0]);
+  } else if (prompt) {
+    params.set("mode", "manual");
+    params.set("title", prompt.slice(0, 60));
+    params.set("points", prompt);
+  }
+  if (activeMode?.dataset.factoryKind) params.set("kind", activeMode.dataset.factoryKind);
+  if (activeMode?.dataset.factoryTone) params.set("tone", activeMode.dataset.factoryTone);
+  return params.toString() ? `/factory/?${params.toString()}#/` : "/factory/#/";
 }
 
 function setCanvasZoom(nextZoom, shouldPersist = true) {
@@ -3140,7 +3190,13 @@ homeSubtabs.forEach((button) => {
 });
 
 templateCards.forEach((card) => {
-  const useTemplate = () => applySkill(card.dataset.skill, "home");
+  const useTemplate = () => {
+    if (card.dataset.factoryEntry === "true") {
+      switchView("factory", "爆款工厂已打开");
+      return;
+    }
+    applySkill(card.dataset.skill, "home");
+  };
   card.addEventListener("click", useTemplate);
   card.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -3156,6 +3212,33 @@ $$("[data-home-target]").forEach((button) => {
 
 categoryButtons.forEach((button) => {
   button.addEventListener("click", () => openTargetFromHome(button));
+});
+
+document.querySelectorAll("[data-factory-route]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const route = button.dataset.factoryRoute;
+    if (!route) return;
+    setFactoryFrameRoute(route, "爆款工厂已切换");
+  });
+});
+
+factoryModeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setActiveFactoryMode(button);
+    setFactoryPrompt(button.dataset.factoryPrompt);
+  });
+});
+
+document.querySelectorAll("[data-factory-prompt]").forEach((button) => {
+  if (button.matches("[data-factory-mode]")) return;
+  button.addEventListener("click", () => {
+    setFactoryPrompt(button.dataset.factoryPrompt);
+    switchView("factory", "已写入爆款工厂 Agent Canvas");
+  });
+});
+
+factoryLaunch?.addEventListener("click", () => {
+  setFactoryFrameRoute(buildFactoryLaunchRoute(), "已发送到爆款工厂");
 });
 
 newCanvasButton.addEventListener("click", () => switchView("board", "已进入画布"));
@@ -3950,3 +4033,6 @@ function openToolOverlay(toolId) {
 function closeToolOverlay() {
   toolOverlay.classList.add("hidden");
 }
+
+syncViewFromHash();
+window.addEventListener("hashchange", syncViewFromHash);

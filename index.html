@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>灵剧工作室 - AI 短剧生成</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=factory-subfeature4" />
   </head>
   <body>
     <div class="app-shell">
@@ -14,6 +14,7 @@
         <button class="rail-item" data-view="agent" data-icon="bot"><span>Agent</span></button>
         <button class="rail-item" data-view="board" data-icon="layout-dashboard"><span>画布</span></button>
         <button class="rail-item" data-view="drama" data-icon="clapperboard"><span>短剧工作室</span></button>
+        <button class="rail-item" data-view="factory" data-icon="shopping-cart"><span>爆款工厂</span></button>
         <button class="rail-item" data-view="workbench" data-icon="briefcase-business"><span>工作台</span></button>
         <button class="rail-item" data-view="image" data-icon="image"><span>图片</span></button>
         <button class="rail-item" data-view="video" data-icon="video"><span>视频</span></button>
@@ -39,6 +40,7 @@
                   <i data-icon="chevron-down"></i>
                 </button>
                 <button data-home-target="drama">短剧工作室</button>
+                <button data-home-target="factory">爆款工厂</button>
                 <button data-home-target="video">AI 视频</button>
                 <button data-home-target="image">AI 图片</button>
               </nav>
@@ -84,7 +86,7 @@
                 <strong>创作短剧</strong>
                 <p>快速生成剧情视频</p>
               </article>
-              <article class="quick-card product" data-home-target="skill" data-skill-filter="ad" role="button" tabindex="0">
+              <article class="quick-card product" data-home-target="factory" role="button" tabindex="0">
                 <span data-icon="shopping-cart"></span>
                 <strong>营销视频</strong>
                 <p>为产品打造广告</p>
@@ -129,7 +131,7 @@
             </nav>
 
             <section class="template-grid">
-              <article class="template-card" role="button" tabindex="0" data-skill="ugc-ads" data-template-group="marketing">
+              <article class="template-card" role="button" tabindex="0" data-skill="ugc-ads" data-factory-entry="true" data-template-group="marketing">
                 <h3>为这款产品创作一条 UGC 广告</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/ugc-product-demo-a/260/170" alt="UGC 产品广告素材一" />
@@ -137,7 +139,7 @@
                   <img src="https://picsum.photos/seed/ugc-product-demo-c/260/170" alt="UGC 产品广告素材三" />
                 </div>
               </article>
-              <article class="template-card" role="button" tabindex="0" data-skill="fast-product-demo" data-template-group="marketing">
+              <article class="template-card" role="button" tabindex="0" data-skill="fast-product-demo" data-factory-entry="true" data-template-group="marketing">
                 <h3>批量制作 10 条 UGC 带货广告</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/batch-commerce-a/260/170" alt="批量带货广告素材一" />
@@ -153,7 +155,7 @@
                   <img src="https://picsum.photos/seed/viral-product-copy-c/260/170" alt="爆款广告复刻素材三" />
                 </div>
               </article>
-              <article class="template-card" role="button" tabindex="0" data-skill="link-to-video" data-template-group="marketing">
+              <article class="template-card" role="button" tabindex="0" data-skill="link-to-video" data-factory-entry="true" data-template-group="marketing">
                 <h3>将商品链接制作成宣传视频</h3>
                 <div class="template-strip">
                   <img src="https://picsum.photos/seed/link-video-a/260/170" alt="商品链接视频素材一" />
@@ -198,7 +200,7 @@
             <nav class="category-dock" aria-label="内容类型">
               <button data-home-target="skill" data-skill-filter="social"><span class="cat-icon pink" data-icon="share-2"></span><strong>Social Content</strong></button>
               <button data-home-target="video" data-skill-filter="ad"><span class="cat-icon red" data-icon="send"></span><strong>Ad Video</strong></button>
-              <button data-home-target="image" data-skill-filter="ecommerce"><span class="cat-icon amber" data-icon="shopping-cart"></span><strong>Ecommerce</strong></button>
+              <button data-home-target="factory" data-skill-filter="ecommerce"><span class="cat-icon amber" data-icon="shopping-cart"></span><strong>Ecommerce</strong></button>
               <button class="selected" data-home-target="drama" data-skill-filter="film"><span class="cat-icon orange" data-icon="film"></span><strong>Film</strong></button>
               <button data-home-target="avatar" data-skill-filter="ugc"><span class="cat-icon violet" data-icon="user-round"></span><strong>AI UGC Video</strong></button>
               <button data-home-target="video" data-skill-filter="explainer"><span class="cat-icon indigo" data-icon="presentation"></span><strong>Explainer Video</strong></button>
@@ -596,6 +598,76 @@
           </div>
         </section>
 
+        <section class="module-view" data-view="factory">
+          <div class="factory-module">
+            <div class="factory-hero">
+              <div class="factory-hero-copy">
+                <span class="factory-kicker">Video Agent Canvas / 子功能</span>
+                <h1>爆款工厂：把商品变成可投放视频</h1>
+                <p>按 Topview 的 Agent Canvas 结构整合：商品链接或卖点输入 → 广告脚本 → 出图出片 → 配音字幕 → 多语言本地化。</p>
+                <div class="factory-model-pills" aria-label="爆款工厂能力">
+                  <span>商品链接成片</span>
+                  <span>AI UGC 口播</span>
+                  <span>Shoppable Video</span>
+                  <span>多语言投放</span>
+                </div>
+              </div>
+              <a class="factory-open-link" href="/factory/#/" target="_blank" rel="noopener">独立打开</a>
+            </div>
+
+            <section class="factory-agent-canvas" aria-label="爆款工厂 Agent Canvas">
+              <div class="factory-canvas-tabs" aria-label="创作模式">
+                <button class="active" data-factory-mode data-factory-kind="ad" data-factory-tone="ugc" data-factory-prompt="粘贴商品链接，生成 15 秒竖屏带货广告，开头 3 秒要有强钩子。">商品链接成片</button>
+                <button data-factory-mode data-factory-kind="ugc" data-factory-tone="review" data-factory-prompt="为这款产品生成 AI UGC 口播视频，口吻像真实买家测评。">AI UGC</button>
+                <button data-factory-mode data-factory-kind="ad" data-factory-tone="pain_solution" data-factory-prompt="提炼痛点-解决方案-成交理由，生成适合国内投放的短视频广告。">广告爆款复刻</button>
+                <button data-factory-mode data-factory-kind="ad" data-factory-tone="feature_benefit" data-factory-prompt="把同一商品改写成中文、英文、日文多语言投放版本。">多语言本地化</button>
+              </div>
+              <label class="factory-prompt-card">
+                <span>告诉 Agent 你要做什么</span>
+                <textarea id="factoryPrompt" placeholder="粘贴商品链接，或输入商品名、价格、目标人群、核心卖点。">粘贴商品链接，生成 15 秒竖屏带货广告，开头 3 秒要有强钩子。</textarea>
+              </label>
+              <div class="factory-reference-row" aria-label="参考模板">
+                <button data-factory-prompt="参考 TikTok 爆款结构：问题钩子 + 使用前后对比 + 价格锚点 + 限时 CTA。">TikTok 爆款结构</button>
+                <button data-factory-prompt="做一版小红书种草风：真实体验、生活场景、避坑提醒、自然安利。">小红书种草</button>
+                <button data-factory-prompt="做一版直播切片风：主播开场、卖点连击、用户痛点、逼单话术。">直播切片</button>
+                <button data-factory-prompt="做一版电商详情页转视频：标题、主图、参数、评价全部转成分镜。">详情页转视频</button>
+              </div>
+              <div class="factory-compose-footer">
+                <div class="factory-option-chips">
+                  <span>9:16 竖屏</span>
+                  <span>6 秒单镜</span>
+                  <span>中文主语言</span>
+                  <span>本地兜底可跑通</span>
+                </div>
+                <button id="factoryLaunch" class="factory-launch" type="button">开始创作</button>
+              </div>
+            </section>
+
+            <div class="factory-tool-dock" aria-label="Topview 风格频道入口">
+              <button data-factory-prompt="生成适合抖音/快手的信息流广告，要求 3 秒强钩子和明确 CTA。"><span>Social Content</span><strong>社媒内容</strong></button>
+              <button data-factory-prompt="生成电商带货广告，突出价格、功效、评价和成交理由。"><span>Ad Video</span><strong>广告视频</strong></button>
+              <button data-factory-prompt="把商品详情页转成 5 个分镜的 Shoppable Video。"><span>Ecommerce</span><strong>商品视频</strong></button>
+              <button data-factory-prompt="生成 AI UGC 数字人口播，像真实用户开箱测评。"><span>AI UGC Video</span><strong>UGC 口播</strong></button>
+              <button data-factory-route="/factory/#/projects"><span>Projects</span><strong>项目库</strong></button>
+              <button data-factory-route="/factory/#/settings"><span>Agent API</span><strong>模型设置</strong></button>
+            </div>
+
+            <div class="factory-module-metrics" aria-label="爆款工厂能力">
+              <div><span>后端</span><strong>真实 API</strong></div>
+              <div><span>兜底</span><strong>本地生成</strong></div>
+              <div><span>Agent</span><strong>MCP / OpenAPI</strong></div>
+            </div>
+            <nav class="factory-module-actions" aria-label="爆款工厂快捷入口">
+              <button class="active" data-factory-route="/factory/#/">商品链接成片</button>
+              <button data-factory-route="/factory/#/projects">项目库</button>
+              <button data-factory-route="/factory/#/settings">模型与 Agent 设置</button>
+            </nav>
+            <div class="factory-frame-shell">
+              <iframe id="factoryFrame" src="/factory/#/" title="爆款工厂 · AI 电商带货视频"></iframe>
+            </div>
+          </div>
+        </section>
+
         <section class="module-view" data-view="image">
           <div class="tool-header"><h1>图片</h1><p>Image tools</p></div>
           <div class="tool-grid">
@@ -686,6 +758,43 @@
     </div>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=factory-subfeature4"></script>
+    <script>
+      (() => {
+        const syncView = (view) => {
+          const next = view || location.hash.replace(/^#\/?/, "") || "home";
+          const hasView = document.querySelector(`.module-view[data-view="${next}"]`);
+          if (!hasView) return;
+          document.querySelectorAll(".rail-item").forEach((item) => item.classList.toggle("active", item.dataset.view === next));
+          document.querySelectorAll(".module-view").forEach((item) => item.classList.toggle("active", item.dataset.view === next));
+        };
+        document.querySelectorAll(".rail-item[data-view]").forEach((item) => {
+          item.addEventListener("click", () => {
+            const view = item.dataset.view || "home";
+            history.replaceState(null, "", view === "home" ? "#/" : `#/${view}`);
+            syncView(view);
+          });
+        });
+        document.querySelectorAll("[data-factory-route]").forEach((item) => {
+          item.addEventListener("click", () => {
+            const frame = document.getElementById("factoryFrame");
+            if (frame && item.dataset.factoryRoute) frame.src = item.dataset.factoryRoute;
+            document.querySelectorAll("[data-factory-route]").forEach((button) => button.classList.toggle("active", button === item));
+            history.replaceState(null, "", "#/factory");
+            syncView("factory");
+          });
+        });
+        document.querySelectorAll("[data-factory-prompt]").forEach((item) => {
+          item.addEventListener("click", () => {
+            const prompt = document.getElementById("factoryPrompt");
+            if (prompt) prompt.value = item.dataset.factoryPrompt || prompt.value;
+            history.replaceState(null, "", "#/factory");
+            syncView("factory");
+          });
+        });
+        window.addEventListener("hashchange", () => syncView());
+        syncView();
+      })();
+    </script>
   </body>
 </html>

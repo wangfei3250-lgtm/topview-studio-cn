@@ -15,6 +15,30 @@ const capText = (c) => ({ llm: '大模型', provider: '供应商', local: '本�
 
 // ---------- 创作框表单状态 ----------
 const form = { mode: 'url', url: '', title: '', brand: '', price: '', points: '', images: '', tone: 'ugc', kind: 'ad', ratio: '9:16', lang: 'zh', duration: 6 };
+let appliedLaunchParams = false;
+
+function applyLaunchParams() {
+  if (appliedLaunchParams) return;
+  appliedLaunchParams = true;
+  const params = new URLSearchParams(location.search);
+  if (!params.size) return;
+  const url = params.get('url')?.trim();
+  const title = params.get('title')?.trim();
+  const points = params.get('points')?.trim() || params.get('prompt')?.trim();
+  const mode = params.get('mode')?.trim();
+  if (url) {
+    form.mode = 'url';
+    form.url = url;
+  } else if (title || points || mode === 'manual') {
+    form.mode = 'manual';
+    form.title = title || points?.slice(0, 60) || '';
+    form.points = points || '';
+  }
+  if (params.get('kind')) form.kind = params.get('kind');
+  if (params.get('tone')) form.tone = params.get('tone');
+  if (params.get('ratio')) form.ratio = params.get('ratio');
+  if (params.get('lang')) form.lang = params.get('lang');
+}
 
 // ================= 视图 =================
 async function viewHome() {
@@ -96,18 +120,6 @@ async function viewProjects() {
   page.innerHTML = `<h1>项目</h1><div class="grid" id="list"><div class="empty">加载中…</div></div>`;
   const { projects } = await GET('/api/projects');
   document.getElementById('list').innerHTML = projects.length ? projects.map(projCard).join('') : `<div class="empty">还没有项目</div>`;
-}
-
-function viewStudio() {
-  page.innerHTML = `
-    <div class="studio-head">
-      <div>
-        <h1>国内版 AI 视频工作室</h1>
-        <p class="sub">原项目工作室已嵌入当前测试版，可继续使用首页、Agent、画布、短剧工作流和工具模块。</p>
-      </div>
-      <a class="open-studio" href="/" target="_blank" rel="noopener">打开完整工作室</a>
-    </div>
-    <iframe class="studio-frame" src="/" title="国内版 AI 视频工作室原型"></iframe>`;
 }
 
 async function viewProject(id) {
@@ -265,12 +277,12 @@ function setNav(name) { document.querySelectorAll('[data-nav]').forEach((a) => a
 async function route() {
   closePlayer();
   if (!BOOT) BOOT = await bootstrap();
+  applyLaunchParams();
   document.getElementById('cap').innerHTML = `脚本 <b>${capText(BOOT.capabilities.script)}</b> · 图 <b>${capText(BOOT.capabilities.image)}</b> · 片 <b>${capText(BOOT.capabilities.video)}</b>`;
   const h = location.hash.slice(1) || '/';
   const m = h.match(/^\/project\/(.+)$/);
   if (m) { setNav('projects'); return viewProject(m[1]); }
   if (h.startsWith('/projects')) { setNav('projects'); return viewProjects(); }
-  if (h.startsWith('/studio')) { setNav('studio'); return viewStudio(); }
   if (h.startsWith('/settings')) { setNav('settings'); return viewSettings(); }
   setNav('home'); return viewHome();
 }
