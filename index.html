@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>灵剧工作室 - AI 短剧生成</title>
-    <link rel="stylesheet" href="./styles.css?v=factory-parity2" />
+    <link rel="stylesheet" href="./styles.css?v=drama-agent1" />
   </head>
   <body>
     <div class="app-shell">
@@ -470,6 +470,56 @@
               <button data-tier="budget"><strong>助理编剧</strong><span>0.5x · 排版和轻量清理</span></button>
             </div>
           </div>
+
+          <section class="drama-command-center" aria-label="短剧工作室总控台">
+            <div class="drama-status-card">
+              <span>当前流程</span>
+              <strong id="dramaStatusText">等待输入故事或打开项目</strong>
+              <p>从故事想法到完整短剧交付：分集规划、剧本、角色场景、分镜、配音字幕、审片导出。</p>
+            </div>
+            <div class="drama-metric-grid" aria-label="短剧工作室状态">
+              <div><span>分集</span><strong id="dramaEpisodeCount">0</strong></div>
+              <div><span>资产</span><strong id="dramaAssetCount">0</strong></div>
+              <div><span>分镜</span><strong id="dramaShotCount">0</strong></div>
+              <div><span>交付</span><strong id="dramaDeliveryStatus">待生成</strong></div>
+            </div>
+            <div class="drama-action-dock" aria-label="短剧工作室快捷子功能">
+              <button data-drama-action="new-project"><span data-icon="plus"></span><strong>新建项目</strong><small>清空输入并开始</small></button>
+              <button data-drama-action="import-script"><span data-icon="upload-cloud"></span><strong>导入剧本</strong><small>txt / md / docx / pdf</small></button>
+              <button data-drama-action="open-script"><span data-icon="scroll-text"></span><strong>剧本编辑</strong><small>分集、对白、节奏</small></button>
+              <button data-drama-action="auto-assets"><span data-icon="users-round"></span><strong>角色场景</strong><small>参考图与资产库</small></button>
+              <button data-drama-action="open-storyboard"><span data-icon="panels-top-left"></span><strong>故事板</strong><small>逐镜生成与审图</small></button>
+              <button data-drama-action="open-voiceover"><span data-icon="mic-2"></span><strong>配音字幕</strong><small>口播、字幕、音乐</small></button>
+              <button data-drama-action="open-export"><span data-icon="package-check"></span><strong>审片导出</strong><small>质检、打包、下载</small></button>
+              <button data-drama-action="open-settings"><span data-icon="settings"></span><strong>模型设置</strong><small>脚本/图/视频/音频</small></button>
+            </div>
+            <div class="drama-config-row">
+              <label>类型
+                <select id="dramaGenreSelect">
+                  <option value="romance">女频言情</option>
+                  <option value="revenge">复仇爽剧</option>
+                  <option value="suspense">悬疑反转</option>
+                  <option value="comedy">喜剧短剧</option>
+                  <option value="fantasy">奇幻甜宠</option>
+                </select>
+              </label>
+              <label>交付格式
+                <select id="dramaFormatSelect">
+                  <option value="9:16">9:16 竖屏</option>
+                  <option value="16:9">16:9 横屏</option>
+                  <option value="1:1">1:1 方屏</option>
+                </select>
+              </label>
+              <label>目标平台
+                <select id="dramaTargetSelect">
+                  <option value="douyin">抖音 / 快手</option>
+                  <option value="xiaohongshu">小红书</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="youtube">YouTube Shorts</option>
+                </select>
+              </label>
+            </div>
+          </section>
         </section>
 
         <section class="project-section">
@@ -536,9 +586,78 @@
             <div id="productionStageList" class="production-stage-list"></div>
             <div id="productionModelMap" class="production-model-map"></div>
           </div>
+          <section class="drama-agent-panel" id="dramaAgentPanel" aria-label="项目智能 Agent 生成列表">
+            <div class="drama-agent-head">
+              <div>
+                <span>Project Agent</span>
+                <h3>智能 Agent 对话列表</h3>
+                <p id="dramaAgentSummary">创建项目后，Agent 会按顺序生成剧本大纲、分镜脚本、角色/场景/道具提示词和视频生成队列。</p>
+              </div>
+              <button id="dramaAgentAutoButton" class="generate-button small">
+                <span data-icon="play"></span>
+                继续生成
+              </button>
+            </div>
+            <div id="dramaAgentThread" class="drama-agent-thread"></div>
+          </section>
+          <nav class="drama-workflow-tabs" id="dramaWorkflowTabs" aria-label="短剧工作流子功能">
+            <button class="active" data-drama-step="overview">项目总览</button>
+            <button data-drama-step="script">分集剧本</button>
+            <button data-drama-step="asset">角色场景</button>
+            <button data-drama-step="beat">剧情节奏</button>
+            <button data-drama-step="storyboard">故事板</button>
+            <button data-drama-step="voiceover">配音字幕</button>
+            <button data-drama-step="final">审片导出</button>
+          </nav>
+          <!-- Step -1: Overview -->
+          <div id="overviewStep" class="workflow-step">
+            <div class="drama-overview-grid">
+              <section class="drama-panel">
+                <div class="drama-panel-head">
+                  <span>Series Bible</span>
+                  <h3>项目总览</h3>
+                </div>
+                <div id="dramaBlueprintNotes" class="drama-blueprint-notes"></div>
+              </section>
+              <section class="drama-panel">
+                <div class="drama-panel-head">
+                  <span>Episodes</span>
+                  <h3>分集规划</h3>
+                </div>
+                <div id="dramaEpisodeList" class="drama-episode-list"></div>
+              </section>
+              <section class="drama-panel">
+                <div class="drama-panel-head">
+                  <span>Delivery</span>
+                  <h3>交付清单</h3>
+                </div>
+                <div id="dramaDeliveryChecklist" class="drama-delivery-checklist"></div>
+              </section>
+            </div>
+            <div class="drama-step-actions">
+              <button id="generateScriptButton" class="generate-button small"><span data-icon="scroll-text"></span>生成分集剧本</button>
+              <button id="nextAssetFromOverviewButton" class="generate-button small ghost"><span data-icon="users-round"></span>进入角色场景</button>
+            </div>
+          </div>
+          <!-- Step 0: Script -->
+          <div id="scriptStep" class="workflow-step hidden">
+            <div class="drama-panel">
+              <div class="drama-panel-head">
+                <span>Script Editor</span>
+                <h3>分集剧本编辑</h3>
+              </div>
+              <textarea id="scriptEditor" class="script-editor" placeholder="这里会生成分集剧情、对白、旁白、转场和镜头提示。"></textarea>
+              <div class="script-tool-row">
+                <button id="polishScriptButton" class="generate-button small"><span data-icon="sparkles"></span>润色对白</button>
+                <button id="lockScriptButton" class="generate-button small ghost"><span data-icon="lock"></span>锁定剧本</button>
+                <button id="exportScriptButton" class="generate-button small ghost"><span data-icon="download"></span>导出剧本</button>
+                <button id="nextAssetFromScriptButton" class="generate-button small"><span data-icon="users-round"></span>生成角色场景</button>
+              </div>
+            </div>
+          </div>
           <!-- Step 0: Assets -->
-          <div id="assetStep" class="workflow-step">
-            <h3>角色与场景资产</h3>
+          <div id="assetStep" class="workflow-step hidden">
+            <h3>角色 / 场景 / 道具提示词</h3>
             <div class="asset-section">
               <h4>角色列表</h4>
               <ul id="characterList"></ul>
@@ -548,6 +667,11 @@
               <h4>场景列表</h4>
               <ul id="sceneList"></ul>
               <button id="addSceneButton" class="generate-button small"><span data-icon="home"></span>添加场景</button>
+            </div>
+            <div class="asset-section">
+              <h4>道具提示词</h4>
+              <ul id="propList"></ul>
+              <button id="addPropButton" class="generate-button small"><span data-icon="package-plus"></span>添加道具</button>
             </div>
             <button id="nextBeatButton" class="generate-button small"><span data-icon="list"></span>生成剧情节奏</button>
           </div>
@@ -597,6 +721,7 @@
           <!-- Step 4: Final video -->
           <div id="finalStep" class="workflow-step hidden">
             <h3>最终视频</h3>
+            <div id="reviewPanel" class="review-panel"></div>
             <div class="final-options">
               <label>分辨率：
                 <select id="resolutionSelect">
@@ -859,7 +984,7 @@
     </div>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script src="./app.js?v=factory-parity2"></script>
+    <script src="./app.js?v=drama-agent1"></script>
     <script>
       (() => {
         const syncView = (view) => {
