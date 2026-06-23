@@ -12,6 +12,7 @@ const writerPopover = $("#writerPopover");
 const toast = $("#toast");
 const railItems = $$(".rail-item");
 const moduleViews = $$(".module-view");
+const viewNames = new Set(moduleViews.map((module) => module.dataset.view).filter(Boolean));
 const agentPickerButton = $("#agentPickerButton");
 const agentPickerMenu = $("#agentPickerMenu");
 const selectedAgentName = $("#selectedAgentName");
@@ -25,7 +26,7 @@ const agentLibrary = $("#agentLibrary");
 const skillList = $("#skillList");
 const skillFilterBar = $("#skillFilterBar");
 const homeSubtabs = $$(".home-subtabs button");
-const templateCards = $$(".template-card[data-skill]");
+const templateCards = $$(".template-card[data-skill], .template-card[data-tool]");
 const categoryButtons = $$(".category-dock button");
 const newCanvasButton = $("#newCanvasButton");
 const openSkillButton = $("#openSkillButton");
@@ -35,6 +36,10 @@ const agentSendButton = $("#agentSendButton");
 const backendSettingsButtons = $$("[data-open-backend-settings]");
 const openSourceButtons = $$("[data-open-source-library]");
 const agentRunList = $("#agentRunList");
+const factoryFrame = $("#factoryFrame");
+const factoryPrompt = $("#factoryPrompt");
+const factoryLaunch = $("#factoryLaunch");
+const factoryModeButtons = $$("[data-factory-mode]");
 
 // --- Workflow Pipeline State ---
 // Keep track of the current project title for tasks and pipeline steps
@@ -42,10 +47,30 @@ let currentProjectTitle = "";
 
 // References for the drama workflow UI elements
 const workflowSection = $("#workflowSection");
+const overviewStep = $("#overviewStep");
+const scriptStep = $("#scriptStep");
+const dramaAgentPanel = $("#dramaAgentPanel");
+const dramaAgentThread = $("#dramaAgentThread");
+const dramaAgentSummary = $("#dramaAgentSummary");
+const dramaAgentAutoButton = $("#dramaAgentAutoButton");
 const beatSheetStep = $("#beatSheetStep");
 const storyboardStep = $("#storyboardStep");
 const voiceoverStep = $("#voiceoverStep");
 const finalStep = $("#finalStep");
+const dramaWorkflowTabs = $("#dramaWorkflowTabs");
+const dramaStatusText = $("#dramaStatusText");
+const dramaEpisodeCount = $("#dramaEpisodeCount");
+const dramaAssetCount = $("#dramaAssetCount");
+const dramaShotCount = $("#dramaShotCount");
+const dramaDeliveryStatus = $("#dramaDeliveryStatus");
+const dramaBlueprintNotes = $("#dramaBlueprintNotes");
+const dramaEpisodeList = $("#dramaEpisodeList");
+const dramaDeliveryChecklist = $("#dramaDeliveryChecklist");
+const scriptEditor = $("#scriptEditor");
+const reviewPanel = $("#reviewPanel");
+const dramaGenreSelect = $("#dramaGenreSelect");
+const dramaFormatSelect = $("#dramaFormatSelect");
+const dramaTargetSelect = $("#dramaTargetSelect");
 const beatTableBody = $("#beatTableBody");
 const storyboardGrid = $("#storyboardGrid");
 const voiceSelect = $("#voiceSelect");
@@ -55,6 +80,12 @@ const ratioSelect = $("#ratioSelect");
 const nextStoryboardButton = $("#nextStoryboardButton");
 const nextVoiceoverButton = $("#nextVoiceoverButton");
 const nextFinalButton = $("#nextFinalButton");
+const generateScriptButton = $("#generateScriptButton");
+const polishScriptButton = $("#polishScriptButton");
+const lockScriptButton = $("#lockScriptButton");
+const exportScriptButton = $("#exportScriptButton");
+const nextAssetFromOverviewButton = $("#nextAssetFromOverviewButton");
+const nextAssetFromScriptButton = $("#nextAssetFromScriptButton");
 const generateFinalButton = $("#generateFinalButton");
 const finalPreview = $("#finalPreview");
 const downloadFinalButton = $("#downloadFinalButton");
@@ -68,13 +99,26 @@ const finalTimeline = $("#finalTimeline");
 const assetStep = $("#assetStep");
 const characterList = $("#characterList");
 const sceneList = $("#sceneList");
+const propList = $("#propList");
 const addCharacterButton = $("#addCharacterButton");
 const addSceneButton = $("#addSceneButton");
+const addPropButton = $("#addPropButton");
 const nextBeatButton = $("#nextBeatButton");
 
 // Arrays to store characters and scenes
 const charactersData = [];
 const scenesData = [];
+const propsData = [];
+const dramaStudioState = {
+  episodes: [],
+  scriptDraft: "",
+  lockedScript: false,
+  deliveryItems: [],
+  reviewItems: [],
+  agentSteps: [],
+  activeAgentIndex: 0,
+  agentRunning: false,
+};
 
 // DOM references for agent chat composer and chat panel
 const agentChat = $(".agent-chat");
@@ -130,6 +174,7 @@ const comfyNodeStatus = $("#comfyNodeStatus");
 
 let selectedMode = "series";
 let attachedFileName = "";
+let attachedFileText = "";
 let writerTier = "standard";
 let isGenerating = false;
 let selectedAgent = "canvas";
@@ -198,6 +243,243 @@ const toolMeta = {
   "audio-tts": { title: "Text to Speech", description: "将文本转换为语音音频" },
   "audio-clone": { title: "Instant Voice Clone", description: "快速克隆并合成声音" },
   "audio-design": { title: "Voice Design", description: "自定义声音设计" },
+  "ai-video-agent": {
+    title: "AI Video Agent",
+    description: "对标 Topview 的 Video Agent Canvas：输入目标，自动选择广告、商品、社媒、短片或图片工作流。",
+    platform: "TikTok / Reels / Shorts",
+    ratio: "9:16",
+    duration: "15s",
+    output: "视频脚本 + 分镜 + 素材任务",
+    defaultPrompt: "帮我把一个商品或创意做成 15 秒竖屏视频，包含强钩子、分镜、字幕和 CTA。",
+    factory: true,
+    kind: "ad",
+    tone: "ugc",
+  },
+  "ai-ads-video": {
+    title: "AI Ads Video",
+    description: "生成 TikTok、Instagram Reels、YouTube Shorts 风格广告，包含钩子、卖点、字幕和平台安全区。",
+    platform: "TikTok Ads / Meta Reels / YouTube Shorts",
+    ratio: "9:16",
+    duration: "15s / 30s / 60s",
+    output: "广告变体 + 平台导出清单",
+    defaultPrompt: "生成一条适合 TikTok 和 Reels 投放的高转化产品广告。",
+    factory: true,
+    kind: "ad",
+    tone: "pain_solution",
+  },
+  "ai-product-video": {
+    title: "AI Product Video",
+    description: "将商品图片、链接或卖点变成产品展示、开箱、教程、详情页视频。",
+    platform: "Amazon / Shopify / 抖店 / 小红书",
+    ratio: "9:16",
+    duration: "15s",
+    output: "商品分镜 + 展示镜头 + 成交理由",
+    defaultPrompt: "把这个商品做成产品视频，突出价格、功能、真实使用场景和成交理由。",
+    factory: true,
+    kind: "ad",
+    tone: "feature_benefit",
+  },
+  "ai-ugc-video": {
+    title: "AI UGC Video",
+    description: "生成达人测评、开箱、使用体验、买家证言、问题-解决方案式 UGC 广告。",
+    platform: "TikTok / Reels / Meta Ads",
+    ratio: "9:16",
+    duration: "15s",
+    output: "UGC 口播脚本 + 数字人/配音任务",
+    defaultPrompt: "用真实买家测评口吻生成一条 UGC 口播广告。",
+    factory: true,
+    kind: "ugc",
+    tone: "review",
+  },
+  "url-to-video": {
+    title: "URL to Video",
+    description: "粘贴商品页、落地页或文章链接，解析标题、图片、卖点并生成视频草稿。",
+    platform: "Amazon / Shopify / 独立站 / 活动页",
+    ratio: "9:16",
+    duration: "15s",
+    output: "链接解析 + 脚本 + 场景 + 字幕",
+    defaultPrompt: "粘贴一个公开商品链接，自动生成广告脚本、分镜和字幕。",
+    factory: true,
+    kind: "ad",
+    tone: "ugc",
+  },
+  "ai-avatar-generator": {
+    title: "AI Avatar Generator",
+    description: "选择人设、年龄、性别、语言、口吻和服装，生成可复用数字人。",
+    platform: "Avatar / Talking Head",
+    ratio: "9:16",
+    duration: "15s",
+    output: "数字人设定 + 口播任务",
+    defaultPrompt: "创建一个适合电商测评的中文数字人主播。",
+  },
+  "product-avatar": {
+    title: "Product Avatar",
+    description: "数字人与商品同框演示，控制商品位置、手持动作、展示角度和讲解节奏。",
+    platform: "Product Avatar",
+    ratio: "9:16",
+    duration: "15s",
+    output: "数字人商品演示分镜",
+    defaultPrompt: "让数字人自然手持并展示这款商品，完成 15 秒讲解。",
+    factory: true,
+    kind: "ugc",
+    tone: "demo",
+  },
+  "design-my-avatar": {
+    title: "Design My Avatar",
+    description: "从品牌定位出发设计专属数字人，包括外观、声音、性格和镜头风格。",
+    platform: "Avatar Brand Kit",
+    ratio: "9:16",
+    duration: "15s",
+    output: "数字人角色卡 + 视觉设定",
+    defaultPrompt: "为我的品牌设计一个亲和力强、适合带货口播的数字人。",
+  },
+  "ai-lip-sync": {
+    title: "AI Lip-sync",
+    description: "为真人/数字人口播视频生成多语言配音和准确口型同步。",
+    platform: "Multilingual Lip-sync",
+    ratio: "9:16",
+    duration: "15s",
+    output: "配音 + 字幕 + 口型同步任务",
+    defaultPrompt: "把这段中文口播本地化成英文和日文，并保持口型同步。",
+  },
+  "ai-video-generator": {
+    title: "AI Video Generator",
+    description: "文生视频、图生视频、参考图生成视频，并支持比例、时长、镜头运动。",
+    platform: "Seedance / Kling / Sora / Veo",
+    ratio: "16:9 / 9:16 / 1:1",
+    duration: "5s / 10s / 15s",
+    output: "视频生成任务",
+    defaultPrompt: "生成一段电影感产品展示视频，镜头平滑推进，真实光影。",
+  },
+  "ai-short-video": {
+    title: "AI Short Video",
+    description: "生成短视频脚本、镜头拆分、字幕节奏和发布标题。",
+    platform: "Shorts / Reels / 抖音 / 快手",
+    ratio: "9:16",
+    duration: "15s / 30s",
+    output: "短视频脚本 + 生成任务",
+    defaultPrompt: "为这个主题生成 30 秒短视频，前 3 秒必须抓人。",
+  },
+  "storyboard-to-video": {
+    title: "Storyboard to Video",
+    description: "用故事板控制镜头连续性，逐镜生成画面和视频，减少盲抽 token。",
+    platform: "Storyboard",
+    ratio: "16:9 / 9:16",
+    duration: "分镜控制",
+    output: "故事板 + 逐镜视频任务",
+    defaultPrompt: "把这个脚本拆成 6 个故事板镜头并生成视频。",
+  },
+  "video-clone": {
+    title: "Video Clone",
+    description: "分析参考视频的节奏、镜头、字幕、CTA 和结构，用新产品复刻。",
+    platform: "Replica Engine",
+    ratio: "9:16",
+    duration: "15s",
+    output: "参考拆解 + 复刻任务",
+    defaultPrompt: "复刻这条爆款广告的结构，但替换成我的产品。",
+    factory: true,
+    kind: "ad",
+    tone: "viral_clone",
+  },
+  "ai-product-photo": {
+    title: "AI Product Photo",
+    description: "生成商品棚拍、生活方式图、详情图和广告主视觉。",
+    platform: "Product Photo",
+    ratio: "1:1 / 4:5 / 16:9",
+    duration: "图片",
+    output: "商品图生成任务",
+    defaultPrompt: "为这个商品生成一组高端电商主图和生活方式场景图。",
+  },
+  "ai-product-shoot": {
+    title: "AI Product Shoots",
+    description: "将平面商品图放入真实光影场景，生成棚拍质感与品牌背景。",
+    platform: "Commercial Product Shoot",
+    ratio: "1:1 / 4:5",
+    duration: "图片",
+    output: "商品棚拍任务",
+    defaultPrompt: "把这张商品图做成真实棚拍效果，突出材质、反光和高级背景。",
+  },
+  "ai-effects": {
+    title: "AI Effects",
+    description: "为图片或视频添加转场、变形、运动特效、Meme 效果和风格化包装。",
+    platform: "Effects",
+    ratio: "9:16",
+    duration: "5s / 15s",
+    output: "特效视频任务",
+    defaultPrompt: "给这段产品视频加一个吸睛 AI 转场和结尾 CTA。",
+  },
+  "virtual-tryon": {
+    title: "Virtual Try-On",
+    description: "服装、配饰、美妆产品虚拟试穿，生成多角度模特展示。",
+    platform: "Fashion / Beauty",
+    ratio: "9:16 / 4:5",
+    duration: "图片或视频",
+    output: "试穿生成任务",
+    defaultPrompt: "让模特试穿这件商品，生成 3 个角度的展示素材。",
+  },
+  "advertising-case": {
+    title: "Advertising",
+    description: "为广告投放生成素材策略、平台规格、变体计划和导出清单。",
+    platform: "Google / Meta / TikTok / YouTube",
+    ratio: "多平台",
+    duration: "15s / 30s / 60s",
+    output: "投放素材包",
+    defaultPrompt: "为这个产品制定一组广告素材：3 个钩子、3 个卖点、3 个 CTA。",
+  },
+  "affiliate-case": {
+    title: "Affiliate Marketing",
+    description: "为联盟营销生成达人口播、商品脚本、优惠点和批量素材变体。",
+    platform: "Affiliate / Native Ads",
+    ratio: "9:16",
+    duration: "15s",
+    output: "联盟素材变体",
+    defaultPrompt: "为联盟投放生成 10 条不同角度的短视频广告脚本。",
+    factory: true,
+    kind: "ugc",
+    tone: "review",
+  },
+  "ecommerce-case": {
+    title: "Ecommerce",
+    description: "针对 Amazon、Shopify、抖店和独立站生成商品视频、详情页视频和 SKU 扩量素材。",
+    platform: "Amazon / Shopify / 抖店",
+    ratio: "9:16 / 1:1 / 4:5",
+    duration: "15s",
+    output: "电商商品视频任务",
+    defaultPrompt: "把这个 SKU 做成电商详情页视频和信息流广告。",
+    factory: true,
+    kind: "ad",
+    tone: "feature_benefit",
+  },
+  "dtc-case": {
+    title: "DTC Brands",
+    description: "保持品牌字体、颜色、Logo 和视觉调性一致，批量生成 DTC 品牌素材。",
+    platform: "DTC / Brand Kit",
+    ratio: "多平台",
+    duration: "15s / 30s",
+    output: "品牌素材任务",
+    defaultPrompt: "为 DTC 品牌生成一组统一视觉风格的商品广告。",
+  },
+  "ai-live-stream": {
+    title: "AI Live Stream",
+    description: "生成直播脚本、数字人口播、卖点循环、切片标题和直播间成交话术。",
+    platform: "Live Commerce",
+    ratio: "9:16",
+    duration: "直播切片",
+    output: "直播脚本 + 切片任务",
+    defaultPrompt: "为这款商品生成直播带货脚本和 5 条短视频切片。",
+    factory: true,
+    kind: "ugc",
+    tone: "live",
+  },
+  "tiktok-ad-library": {
+    title: "TikTok Ad Library",
+    description: "拆解 TikTok 爆款广告：钩子、镜头、节奏、字幕、评论诱因和 CTA。",
+    platform: "TikTok Ad Library",
+    ratio: "研究",
+    duration: "分析",
+    output: "爆款结构报告 + 复刻任务",
+    defaultPrompt: "分析一条 TikTok 爆款广告结构，并生成可复刻脚本。",
+  },
 };
 
 // --- Workbench Task State ---
@@ -1352,6 +1634,434 @@ function statusLabel(status) {
   return labels[status] || status || "待处理";
 }
 
+function genreLabel(value = dramaGenreSelect?.value || "romance") {
+  return {
+    romance: "女频言情",
+    revenge: "复仇爽剧",
+    suspense: "悬疑反转",
+    comedy: "喜剧短剧",
+    fantasy: "奇幻甜宠",
+  }[value] || "短剧";
+}
+
+function targetLabel(value = dramaTargetSelect?.value || "douyin") {
+  return {
+    douyin: "抖音 / 快手",
+    xiaohongshu: "小红书",
+    tiktok: "TikTok",
+    youtube: "YouTube Shorts",
+  }[value] || "短视频平台";
+}
+
+function resetDramaStudioState() {
+  dramaStudioState.episodes = [];
+  dramaStudioState.scriptDraft = "";
+  dramaStudioState.lockedScript = false;
+  dramaStudioState.deliveryItems = [];
+  dramaStudioState.reviewItems = [];
+  dramaStudioState.agentSteps = [];
+  dramaStudioState.activeAgentIndex = 0;
+  dramaStudioState.agentRunning = false;
+  if (scriptEditor) scriptEditor.value = "";
+}
+
+function buildDramaEpisodes(production = currentProduction) {
+  const story = production?.story || storyInput?.value.trim() || currentProjectTitle || "未命名短剧";
+  const baseTitle = production?.title || currentProjectTitle || deriveTitle(story);
+  const beats = production?.beats?.length ? production.beats : [
+    { name: "强钩子", goal: "用一句话建立冲突", dialogue: "你以为我真的什么都不知道？" },
+    { name: "误会升级", goal: "放大情绪和关系压力", dialogue: "今天我不再解释。" },
+    { name: "证据反击", goal: "让主角掌握主动权", dialogue: "这一次，轮到你解释。" },
+  ];
+  const count = selectedMode === "single" ? 1 : Math.max(6, Math.min(12, beats.length + 3));
+  return Array.from({ length: count }, (_, index) => {
+    const beat = beats[index % beats.length];
+    return {
+      id: `ep-${index + 1}`,
+      title: `第${index + 1}集 · ${index === 0 ? "开场强钩子" : beat.name || "反转推进"}`,
+      hook: index === 0 ? `${baseTitle}开场 3 秒必须给出误会、背叛或身份反转。` : beat.goal || "继续抬高冲突。",
+      conflict: beat.dialogue || "主角在压迫中做出选择。",
+      payoff: index === count - 1 ? "以关键证据和情感选择收束，留下下一季或投放钩子。" : "结尾用新信息或关系反转吊住下一集。",
+      duration: selectedMode === "single" ? "5-8 min" : "60-90s",
+      status: index === 0 ? "ready" : "draft",
+    };
+  });
+}
+
+function buildPropPrompts(production = currentProduction) {
+  const story = production?.story || storyInput?.value.trim() || currentProjectTitle || "短剧";
+  const base = deriveTitle(story);
+  const candidates = [
+    ["关键手机", "带有裂痕的深色手机，屏幕亮起未读消息，适合证据揭露和情绪特写。"],
+    ["旧照片", "微微泛黄的合照，边角磨损，藏着人物关系反转线索。"],
+    ["红色文件袋", "装着合同、鉴定书或转账记录的红色文件袋，适合反击时刻。"],
+    ["门禁卡", "冷色金属门禁卡，暗示隐藏身份、酒店或办公楼出入记录。"],
+    ["戒指", "细窄银色戒指，适合爱情线误会、承诺和背叛的视觉锚点。"],
+  ];
+  return candidates.slice(0, selectedMode === "single" ? 3 : 5).map(([name, description], index) => ({
+    id: `prop-${index + 1}`,
+    type: "prop",
+    name,
+    description: `${base}：${description}`,
+    prompt: `cinematic vertical drama prop, ${description}, close-up detail, coherent lighting, no text watermark`,
+    tags: ["道具", index === 0 ? "证据" : "剧情线索"],
+    source: "agent",
+  }));
+}
+
+function ensurePropPrompts(production = currentProduction) {
+  if (propsData.length) return;
+  buildPropPrompts(production).forEach((item) => propsData.push(item));
+}
+
+function buildScriptDraft(production = currentProduction) {
+  const episodes = dramaStudioState.episodes.length ? dramaStudioState.episodes : buildDramaEpisodes(production);
+  const voiceLines = production?.voiceover || [];
+  return episodes
+    .map((episode, index) => {
+      const line = voiceLines[index % Math.max(voiceLines.length, 1)];
+      return [
+        `${episode.title}`,
+        `【时长】${episode.duration}`,
+        `【钩子】${episode.hook}`,
+        `【场景一】主角进入冲突现场，镜头先给情绪反应，再给关系压力。`,
+        `【对白】${episode.conflict}`,
+        `【场景二】对手施压，主角用一个动作或证据反击。`,
+        `【旁白/字幕】${line?.text || "她终于明白，沉默只会让真相被再次掩埋。"}`,
+        `【集尾钩子】${episode.payoff}`,
+      ].join("\n");
+    })
+    .join("\n\n---\n\n");
+}
+
+function buildDeliveryItems(production = currentProduction) {
+  const frames = production?.storyboard || [];
+  return [
+    { label: "分集大纲", done: dramaStudioState.episodes.length > 0 },
+    { label: "完整剧本", done: !!dramaStudioState.scriptDraft },
+    { label: "角色参考", done: charactersData.length > 0 },
+    { label: "场景参考", done: scenesData.length > 0 },
+    { label: "道具提示词", done: propsData.length > 0 },
+    { label: "故事板", done: frames.length > 0 },
+    { label: "配音字幕", done: (production?.voiceover || []).length > 0 },
+    { label: "审片导出", done: finalPreview && !finalPreview.classList.contains("hidden") },
+  ];
+}
+
+function buildReviewItems(production = currentProduction) {
+  const frames = production?.storyboard || [];
+  const approved = frames.filter((frame) => frame.status === "approved").length;
+  return [
+    { title: "剧情完整性", detail: dramaStudioState.episodes.length ? "分集钩子、冲突和集尾反转已覆盖。" : "待生成分集规划。", status: dramaStudioState.episodes.length ? "ready" : "waiting" },
+    { title: "角色一致性", detail: charactersData.length ? `${charactersData.length} 个角色参考可用于分镜。` : "待补角色参考。", status: charactersData.length ? "ready" : "waiting" },
+    { title: "场景连续性", detail: scenesData.length ? `${scenesData.length} 个场景参考可用于镜头。` : "待补场景参考。", status: scenesData.length ? "ready" : "waiting" },
+    { title: "道具连续性", detail: propsData.length ? `${propsData.length} 个道具提示词已生成。` : "待生成道具提示词。", status: propsData.length ? "ready" : "waiting" },
+    { title: "分镜审图", detail: frames.length ? `${approved}/${frames.length} 镜已批准。` : "待生成故事板。", status: approved === frames.length && frames.length ? "ready" : "waiting" },
+    { title: "字幕配音", detail: (production?.voiceover || []).length ? "配音字幕脚本已生成，可继续导出。" : "待生成配音字幕。", status: (production?.voiceover || []).length ? "ready" : "waiting" },
+  ];
+}
+
+function agentStatusLabel(status) {
+  return {
+    waiting: "等待",
+    generating: "生成中",
+    completed: "已完成",
+    failed: "需重试",
+  }[status] || "等待";
+}
+
+function textBlock(items, mapper) {
+  return items.length ? items.map(mapper).join("\n") : "等待 Agent 生成。";
+}
+
+function buildStoryboardScript(production = currentProduction) {
+  const frames = production?.storyboard || [];
+  const beats = production?.beats || [];
+  const source = frames.length ? frames : beats;
+  return textBlock(source, (item, index) => {
+    const title = item.title || item.name || `Shot ${index + 1}`;
+    const camera = item.camera || (index % 2 ? "低角度对峙" : "中近景推轨");
+    const prompt = item.prompt || `${item.goal || "推进剧情冲突"}，${item.dialogue || "用对白制造反转"}`;
+    return `${String(index + 1).padStart(2, "0")}. ${title}\n镜头：${camera}\n画面：${prompt}`;
+  });
+}
+
+function buildCharacterPromptText() {
+  return textBlock(charactersData, (item, index) => `${index + 1}. ${item.name}：${item.prompt || item.description}`);
+}
+
+function buildScenePromptText() {
+  return textBlock(scenesData, (item, index) => `${index + 1}. ${item.name}：${item.prompt || item.description}`);
+}
+
+function buildPropPromptText() {
+  ensurePropPrompts();
+  return textBlock(propsData, (item, index) => `${index + 1}. ${item.name}：${item.prompt || item.description}`);
+}
+
+function buildVideoPromptText(production = currentProduction) {
+  const frames = production?.storyboard || [];
+  const ratio = ratioSelect?.value || dramaFormatSelect?.value || production?.aspectRatio || "9:16";
+  const resolution = resolutionSelect?.value || production?.resolution || "1080p";
+  const shots = frames
+    .slice(0, 6)
+    .map((frame, index) => `${index + 1}. ${frame.title || `Shot ${index + 1}`}：${frame.prompt}`)
+    .join("\n");
+  return [
+    `视频模型：${production?.finalPlan?.videoModel || "Seedance 2.0"}`,
+    `规格：${resolution} · ${ratio} · ${targetLabel()}`,
+    `音乐：${production?.finalPlan?.music || "suspense"}`,
+    "镜头队列：",
+    shots || "等待分镜脚本生成。",
+  ].join("\n");
+}
+
+function buildDramaAgentSteps(production = currentProduction) {
+  if (!dramaStudioState.episodes.length) dramaStudioState.episodes = buildDramaEpisodes(production);
+  if (!dramaStudioState.scriptDraft) dramaStudioState.scriptDraft = buildScriptDraft(production);
+  ensurePropPrompts(production);
+  const story = production?.story || storyInput?.value.trim() || "待补充剧本内容。";
+  const source = attachedFileName ? `上传文件：${attachedFileName}` : "输入故事";
+  const templates = [
+    {
+      id: "outline",
+      title: "已上传的剧本大纲",
+      step: "overview",
+      icon: "file-text",
+      prompt: `${source} 已进入项目，先提炼主线、分集结构和集尾钩子。`,
+      output: `【来源】${source}\n【类型】${genreLabel()} · ${targetLabel()}\n【故事摘要】${story.slice(0, 420)}\n\n【分集规划】\n${dramaStudioState.episodes
+        .slice(0, 8)
+        .map((episode, index) => `${index + 1}. ${episode.title}：${episode.hook}`)
+        .join("\n")}`,
+    },
+    {
+      id: "storyboardScript",
+      title: "分镜脚本",
+      step: "storyboard",
+      icon: "panels-top-left",
+      prompt: "把大纲拆成可拍摄镜头，明确镜头语言、画面目标和字幕对白。",
+      output: buildStoryboardScript(production),
+    },
+    {
+      id: "characterPrompts",
+      title: "角色提示词",
+      step: "asset",
+      icon: "users-round",
+      prompt: "为主要角色生成统一外观、服装、情绪和多镜头参考提示词。",
+      output: buildCharacterPromptText(),
+    },
+    {
+      id: "scenePrompts",
+      title: "场景提示词",
+      step: "asset",
+      icon: "map",
+      prompt: "生成可复用场景提示词，保证分镜间环境、光线和气氛统一。",
+      output: buildScenePromptText(),
+    },
+    {
+      id: "propPrompts",
+      title: "道具提示词",
+      step: "asset",
+      icon: "package",
+      prompt: "生成证物、信物、手机、文件等关键道具提示词，绑定剧情反转。",
+      output: buildPropPromptText(),
+    },
+    {
+      id: "videoGeneration",
+      title: "视频生成",
+      step: "final",
+      icon: "video",
+      prompt: "把分镜、角色、场景、道具和配音字幕整理成最终视频生成队列。",
+      output: buildVideoPromptText(production),
+    },
+  ];
+  const previous = new Map((dramaStudioState.agentSteps || []).map((step) => [step.id, step]));
+  return templates.map((template, index) => ({
+    ...template,
+    status: previous.get(template.id)?.status || (index === 0 ? "generating" : "waiting"),
+    updatedAt: previous.get(template.id)?.updatedAt || "",
+  }));
+}
+
+function renderDramaAgentThread(production = currentProduction) {
+  if (!dramaAgentThread) return;
+  if (!dramaStudioState.agentSteps.length) {
+    dramaStudioState.agentSteps = buildDramaAgentSteps(production);
+  } else {
+    const statuses = new Map(dramaStudioState.agentSteps.map((step) => [step.id, step]));
+    dramaStudioState.agentSteps = buildDramaAgentSteps(production).map((step) => {
+      const previous = statuses.get(step.id);
+      return { ...step, status: previous?.status || step.status, updatedAt: previous?.updatedAt || step.updatedAt };
+    });
+  }
+  if (dramaAgentSummary) {
+    const completed = dramaStudioState.agentSteps.filter((step) => step.status === "completed").length;
+    dramaAgentSummary.textContent = `${currentProjectTitle || production?.title || "短剧项目"}：${completed}/${dramaStudioState.agentSteps.length} 项已完成，按剧本大纲、分镜脚本、角色、场景、道具、视频生成推进。`;
+  }
+  dramaAgentThread.innerHTML = dramaStudioState.agentSteps
+    .map((step, index) => `
+      <article class="drama-agent-message ${escapeHtml(step.status)}" data-agent-card="${escapeHtml(step.id)}">
+        <div class="drama-agent-role"><span data-icon="${escapeHtml(step.icon)}"></span><strong>${escapeHtml(step.title)}</strong><em>${escapeHtml(agentStatusLabel(step.status))}</em></div>
+        <p>${escapeHtml(step.prompt)}</p>
+        <pre>${escapeHtml(step.output)}</pre>
+        <div class="drama-agent-card-actions">
+          <button data-agent-open="${escapeHtml(step.step)}">查看详情</button>
+          <button data-agent-rerun="${index}">重新生成此项</button>
+        </div>
+      </article>
+    `)
+    .join("");
+  hydrateIcons();
+}
+
+function completeAgentStep(index, production = currentProduction) {
+  const step = dramaStudioState.agentSteps[index];
+  if (!step) return;
+  step.status = "completed";
+  step.updatedAt = new Date().toISOString();
+  if (step.id === "outline") {
+    renderDramaOverview(production);
+    if (scriptEditor && !scriptEditor.value.trim()) scriptEditor.value = dramaStudioState.scriptDraft;
+  }
+  if (step.id === "storyboardScript") {
+    renderBeatSheet(production?.beats || []);
+    renderStoryboardFrames(production?.storyboard || []);
+  }
+  if (step.id === "characterPrompts" || step.id === "scenePrompts" || step.id === "propPrompts") {
+    renderCharacterList();
+    renderSceneList();
+    renderPropList();
+  }
+  if (step.id === "videoGeneration") {
+    renderFinalPlan(production);
+    renderReviewPanel(production);
+    if (finalPreview) finalPreview.classList.remove("hidden");
+    if (production) {
+      apiJson("/api/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "video",
+          title: `${production.title} 最终视频`,
+          taskTitle: `${production.title} 最终视频`,
+          prompt: (production.storyboard || []).map((frame) => frame.prompt).join("\n"),
+          source: "drama-agent",
+          productionId: production.id,
+          ratio: ratioSelect?.value || production.aspectRatio || "9:16",
+          duration: 8,
+        }),
+      }).then((data) => {
+        if (Array.isArray(data?.allTasks)) mergeBackendTasks(data.allTasks);
+        if (Array.isArray(data?.outputs)) currentOutputs = data.outputs;
+      });
+    }
+  }
+  persistWorkflowEvent(`agent-${step.id}`, { title: step.title, status: "completed" });
+  refreshDramaMetrics(production);
+}
+
+async function runDramaAgentPipeline(startIndex = 0, production = currentProduction) {
+  if (dramaStudioState.agentRunning) return;
+  dramaStudioState.agentRunning = true;
+  if (dramaAgentAutoButton) dramaAgentAutoButton.disabled = true;
+  if (!dramaStudioState.agentSteps.length) dramaStudioState.agentSteps = buildDramaAgentSteps(production);
+  for (let index = startIndex; index < dramaStudioState.agentSteps.length; index += 1) {
+    const step = dramaStudioState.agentSteps[index];
+    if (!step || step.status === "completed") continue;
+    dramaStudioState.activeAgentIndex = index;
+    step.status = "generating";
+    renderDramaAgentThread(production);
+    showStep(step.step);
+    addTask(`${currentProjectTitle || production?.title || "短剧"} - ${step.title}`, {
+      source: "drama-agent",
+      note: index === dramaStudioState.agentSteps.length - 1 ? "Seedance 2.0" : "Agent",
+    });
+    await wait(320);
+    completeAgentStep(index, production);
+    renderDramaAgentThread(production);
+    await wait(140);
+  }
+  dramaStudioState.agentRunning = false;
+  if (dramaAgentAutoButton) dramaAgentAutoButton.disabled = false;
+  showStep("final");
+  showToast("短剧 Agent 生成链路已完成");
+}
+
+function startDramaAgentProject(production = currentProduction) {
+  ensurePropPrompts(production);
+  dramaStudioState.agentSteps = buildDramaAgentSteps(production);
+  renderDramaAgentThread(production);
+  workflowSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+  runDramaAgentPipeline(0, production);
+}
+
+function renderDramaOverview(production = currentProduction) {
+  if (!workflowSection) return;
+  if (!dramaStudioState.episodes.length) dramaStudioState.episodes = buildDramaEpisodes(production);
+  if (!dramaStudioState.scriptDraft) dramaStudioState.scriptDraft = buildScriptDraft(production);
+  ensurePropPrompts(production);
+  dramaStudioState.deliveryItems = buildDeliveryItems(production);
+  dramaStudioState.reviewItems = buildReviewItems(production);
+
+  if (dramaBlueprintNotes) {
+    dramaBlueprintNotes.innerHTML = `
+      <div><span>类型</span><strong>${escapeHtml(genreLabel())}</strong></div>
+      <div><span>格式</span><strong>${escapeHtml(dramaFormatSelect?.value || "9:16")}</strong></div>
+      <div><span>平台</span><strong>${escapeHtml(targetLabel())}</strong></div>
+      <p>${escapeHtml(production?.story || storyInput?.value.trim() || "输入故事后会生成短剧项目圣经、分集结构和交付计划。")}</p>
+    `;
+  }
+  if (dramaEpisodeList) {
+    dramaEpisodeList.innerHTML = dramaStudioState.episodes
+      .map((episode) => `
+        <article>
+          <div><strong>${escapeHtml(episode.title)}</strong><span>${escapeHtml(statusLabel(episode.status))} · ${escapeHtml(episode.duration)}</span></div>
+          <p>${escapeHtml(episode.hook)}</p>
+          <small>${escapeHtml(episode.payoff)}</small>
+        </article>
+      `)
+      .join("");
+  }
+  if (dramaDeliveryChecklist) {
+    dramaDeliveryChecklist.innerHTML = dramaStudioState.deliveryItems
+      .map((item) => `<span class="${item.done ? "done" : ""}">${item.done ? "✓" : "○"} ${escapeHtml(item.label)}</span>`)
+      .join("");
+  }
+  if (scriptEditor && !scriptEditor.value.trim()) scriptEditor.value = dramaStudioState.scriptDraft;
+  renderReviewPanel(production);
+  refreshDramaMetrics(production);
+}
+
+function renderReviewPanel(production = currentProduction) {
+  if (!reviewPanel) return;
+  const items = buildReviewItems(production);
+  reviewPanel.innerHTML = `
+    <div class="drama-panel-head">
+      <span>Review</span>
+      <h3>审片与交付检查</h3>
+    </div>
+    <div class="review-grid">
+      ${items
+        .map((item) => `
+          <article class="${item.status === "ready" ? "ready" : ""}">
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.detail)}</p>
+          </article>
+        `)
+        .join("")}
+    </div>
+  `;
+}
+
+function refreshDramaMetrics(production = currentProduction) {
+  const frames = production?.storyboard || [];
+  const deliveryDone = dramaStudioState.deliveryItems.filter((item) => item.done).length;
+  if (dramaStatusText) dramaStatusText.textContent = production?.title || currentProjectTitle || "等待输入故事或打开项目";
+  if (dramaEpisodeCount) dramaEpisodeCount.textContent = String(dramaStudioState.episodes.length || 0);
+  if (dramaAssetCount) dramaAssetCount.textContent = String(charactersData.length + scenesData.length + propsData.length);
+  if (dramaShotCount) dramaShotCount.textContent = String(frames.length || 0);
+  if (dramaDeliveryStatus) dramaDeliveryStatus.textContent = deliveryDone >= 7 ? "可导出" : `${deliveryDone}/8`;
+}
+
 function outputForFrame(frameId) {
   return currentOutputs.find((output) => output.frameId === frameId);
 }
@@ -1373,6 +2083,8 @@ function renderProduction(production, options = {}) {
   renderStoryboardFrames(production.storyboard || []);
   renderVoiceoverLines(production.voiceover || []);
   renderFinalPlan(production);
+  renderDramaOverview(production);
+  renderDramaAgentThread(production);
   if (options.step) showStep(options.step);
 }
 
@@ -1462,6 +2174,7 @@ function renderStoryboardFrames(frames = []) {
     storyboardGrid.appendChild(div);
   });
   hydrateIcons();
+  refreshDramaMetrics(currentProduction);
 }
 
 function renderVoiceoverLines(lines = []) {
@@ -1512,7 +2225,10 @@ async function prepareDramaProduction(title, story = "", projectId = "") {
     story: story || storyInput?.value?.trim() || currentProjectTitle || "",
     projectId,
     mode: selectedMode,
-    ratio: ratioSelect?.value || "9:16",
+    genre: dramaGenreSelect?.value || "romance",
+    target: dramaTargetSelect?.value || "douyin",
+    writerTier,
+    ratio: dramaFormatSelect?.value || ratioSelect?.value || "9:16",
     resolution: resolutionSelect?.value || "1080p",
   };
   const data = await apiJson("/api/drama/prepare", {
@@ -1524,7 +2240,11 @@ async function prepareDramaProduction(title, story = "", projectId = "") {
   if (Array.isArray(data.projects)) restoreProjects(data.projects);
   restoreAssets(data.assets);
   currentOutputs = data.outputs || currentOutputs;
-  renderProduction(data.production, { step: "asset" });
+  dramaStudioState.episodes = buildDramaEpisodes(data.production);
+  dramaStudioState.scriptDraft = buildScriptDraft(data.production);
+  dramaStudioState.lockedScript = false;
+  if (scriptEditor) scriptEditor.value = dramaStudioState.scriptDraft;
+  renderProduction(data.production, { step: "overview" });
   if (Array.isArray(data.allTasks)) mergeBackendTasks(data.allTasks);
   showToast("生产链路已准备好");
   return data.production;
@@ -1810,8 +2530,12 @@ function restoreAssets(assets) {
   scenesData.length = 0;
   (assets.characters || []).forEach((item) => charactersData.push(item));
   (assets.scenes || []).forEach((item) => scenesData.push(item));
+  ensurePropPrompts(currentProduction);
   renderCharacterList();
   renderSceneList();
+  renderPropList();
+  refreshDramaMetrics(currentProduction);
+  renderDramaAgentThread(currentProduction);
 }
 
 function restoreComfySettings(comfy) {
@@ -1823,14 +2547,77 @@ function restoreComfySettings(comfy) {
   setComfyStatus(comfySettingsState.lastStatus === "已连接", comfySettingsState.lastStatus || "未检测");
 }
 
-function switchView(view, message) {
-  if (!view) return;
+function switchView(view, message, options = {}) {
+  if (!view || !viewNames.has(view)) return;
   railItems.forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   moduleViews.forEach((module) => module.classList.toggle("active", module.dataset.view === view));
   writerPopover.classList.remove("open");
   writerPopover.setAttribute("aria-hidden", "true");
+  if (options.updateHash !== false) {
+    const nextHash = view === "home" ? "#/" : `#/${view}`;
+    if (window.location.hash !== nextHash) history.replaceState(null, "", nextHash);
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (message) showToast(message);
+}
+
+function viewFromHash() {
+  const view = window.location.hash.replace(/^#\/?/, "") || "home";
+  return viewNames.has(view) ? view : "home";
+}
+
+function syncViewFromHash() {
+  switchView(viewFromHash(), null, { updateHash: false });
+}
+
+function setFactoryPrompt(text) {
+  if (!factoryPrompt || !text) return;
+  factoryPrompt.value = text;
+}
+
+function setActiveFactoryMode(button) {
+  factoryModeButtons.forEach((item) => item.classList.toggle("active", item === button));
+}
+
+function setFactoryFrameRoute(route, message = "爆款工厂已打开") {
+  if (factoryFrame && route) factoryFrame.src = route;
+  document.querySelectorAll("[data-factory-route]").forEach((item) => item.classList.toggle("active", item.dataset.factoryRoute === route));
+  switchView("factory", message);
+}
+
+function buildFactoryLaunchRoute() {
+  const prompt = factoryPrompt?.value.trim() || "";
+  const activeMode = $(".factory-canvas-tabs button.active");
+  const params = new URLSearchParams();
+  const urlMatch = prompt.match(/https?:\/\/[^\s，。；;]+/i);
+  if (urlMatch) {
+    params.set("url", urlMatch[0]);
+  } else if (prompt) {
+    params.set("mode", "manual");
+    params.set("title", prompt.slice(0, 60));
+    params.set("points", prompt);
+  }
+  if (activeMode?.dataset.factoryKind) params.set("kind", activeMode.dataset.factoryKind);
+  if (activeMode?.dataset.factoryTone) params.set("tone", activeMode.dataset.factoryTone);
+  return params.toString() ? `/factory/?${params.toString()}#/` : "/factory/#/";
+}
+
+function buildFactoryRouteFromPrompt(prompt = "", meta = {}) {
+  const text = prompt.trim() || meta.defaultPrompt || "";
+  const params = new URLSearchParams();
+  const urlMatch = text.match(/https?:\/\/[^\s，。；;]+/i);
+  if (urlMatch) {
+    params.set("url", urlMatch[0]);
+  } else if (text) {
+    params.set("mode", "manual");
+    params.set("title", text.slice(0, 60));
+    params.set("points", text);
+  }
+  if (meta.kind) params.set("kind", meta.kind);
+  if (meta.tone) params.set("tone", meta.tone);
+  if (meta.ratio?.includes("9:16")) params.set("ratio", "9:16");
+  params.set("source", meta.title || "Topview Tool");
+  return params.toString() ? `/factory/?${params.toString()}#/` : "/factory/#/";
 }
 
 function setCanvasZoom(nextZoom, shouldPersist = true) {
@@ -2459,12 +3246,12 @@ function filterSkillCatalog(filter = "all") {
   });
 }
 
-function setTemplateGroup(group) {
+function setTemplateGroup(group, notify = true) {
   homeSubtabs.forEach((button) => button.classList.toggle("active", button.dataset.templateGroup === group));
   templateCards.forEach((card) => {
     card.classList.toggle("hidden", card.dataset.templateGroup !== group);
   });
-  showToast(`已切换到${groupLabel(group)}模板`);
+  if (notify) showToast(`已切换到${groupLabel(group)}模板`);
 }
 
 function groupLabel(group) {
@@ -2474,6 +3261,15 @@ function groupLabel(group) {
     clone: "视频复刻",
     social: "社媒视频",
     image: "图片设计",
+    "whats-new": "What's New",
+    trending: "Trending",
+    "viral-hook": "Viral Hook",
+    shoppable: "Shoppable Video",
+    effects: "AI Effects",
+    meme: "Meme",
+    pov: "POV & Roleplay",
+    reaction: "Reaction",
+    storytelling: "Storytelling",
   };
   return labels[group] || "全部";
 }
@@ -2704,35 +3500,179 @@ function deriveTitle(text) {
   return cleaned.slice(0, 10) || fallback;
 }
 
-async function simulateGeneration() {
-  if (isGenerating || generateButton.disabled) return;
+function buildProjectStoryText() {
+  const typed = storyInput.value.trim();
+  if (attachedFileText) {
+    return `已上传《${attachedFileName}》剧本内容：\n${attachedFileText.slice(0, 6000)}`;
+  }
+  return typed || (attachedFileName ? `已上传《${attachedFileName}》，请制作成 9:16 竖屏短剧。` : "");
+}
+
+function readUploadedFileText(file) {
+  return new Promise((resolve) => {
+    if (!file || !/\.(txt|md)$/i.test(file.name)) {
+      resolve("");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || "").slice(0, 6000));
+    reader.onerror = () => resolve("");
+    reader.readAsText(file, "utf-8");
+  });
+}
+
+async function startDramaProjectFromInput(trigger = "generate") {
+  if (isGenerating || generateButton.disabled) return null;
+  const story = buildProjectStoryText();
+  if (!story) {
+    showToast("请先上传剧本或输入故事");
+    return null;
+  }
   isGenerating = true;
-  generateButton.innerHTML = '<span data-icon="loader-circle"></span>生成中...';
+  generateButton.innerHTML = '<span data-icon="loader-circle"></span>创建项目中...';
   hydrateIcons();
   refreshGenerateState();
+  const fileTitle = attachedFileName ? attachedFileName.replace(/\.[^.]+$/, "") : "";
+  const baseTitle = (fileTitle || deriveTitle(story) || "未命名短剧").slice(0, 28);
   const createdProject = createProjectCard({
-    story: storyInput.value.trim(),
+    title: baseTitle,
+    story,
     mode: selectedMode,
     status: "generating",
-    source: attachedFileName || "prompt",
+    source: trigger === "upload" ? attachedFileName || "uploaded script" : attachedFileName || "prompt",
   });
-  showToast(`已提交任务：${writerLabel.textContent} · ${selectedMode === "series" ? "连续剧" : "单集"}`);
+  showToast(`已创建短剧项目：${baseTitle}`);
 
-  // Add a corresponding task to the workbench for this generation request
+  let preparedProduction = null;
   try {
-    const baseTitle = storyInput.value.trim().slice(0, 24) || attachedFileName.replace(/\.[^.]+$/, "") || "未命名短剧";
-    addTask(`${baseTitle} 视频任务`);
-    // 展开剧情制作工作流界面并保存当前项目标题
+    addTask(`${baseTitle} Agent 生成链路`, { source: "drama-agent", note: writerLabel.textContent });
     showWorkflowSection(baseTitle);
-    await prepareDramaProduction(baseTitle, storyInput.value.trim(), createdProject?.id || "");
+    preparedProduction = await prepareDramaProduction(baseTitle, story, createdProject?.id || "");
+    if (preparedProduction) startDramaAgentProject(preparedProduction);
   } catch (err) {
-    console.error("Failed to add task:", err);
+    console.error("Failed to create drama project:", err);
+    showToast("项目创建失败，请重试");
   }
-  await wait(1300);
+  await wait(700);
   isGenerating = false;
   generateButton.innerHTML = '<span data-icon="wand-sparkles"></span>生成';
   hydrateIcons();
   refreshGenerateState();
+  return preparedProduction;
+}
+
+async function simulateGeneration() {
+  return startDramaProjectFromInput("generate");
+}
+
+async function ensureDramaProduction(preferredStep = "overview") {
+  if (currentProduction) {
+    workflowSection?.classList.remove("hidden");
+    renderProduction(currentProduction, { step: preferredStep });
+    return currentProduction;
+  }
+  if (!storyInput.value.trim() && !attachedFileName) {
+    storyInput.value = "女主被误解后重回事业高点，凭一份隐藏证据反击背叛者，同时与旧爱重新建立信任。";
+    refreshGenerateState();
+  }
+  const production = await startDramaProjectFromInput("quick-action");
+  if (production && preferredStep) showStep(preferredStep);
+  return production;
+}
+
+function generateScriptDraft(showMessage = true) {
+  const production = currentProduction;
+  if (!dramaStudioState.episodes.length) dramaStudioState.episodes = buildDramaEpisodes(production);
+  dramaStudioState.scriptDraft = buildScriptDraft(production);
+  if (scriptEditor) scriptEditor.value = dramaStudioState.scriptDraft;
+  renderDramaOverview(production);
+  renderDramaAgentThread(production);
+  showStep("script");
+  persistWorkflowEvent("script-draft", { title: currentProjectTitle || production?.title || "未命名短剧" });
+  if (showMessage) showToast("分集剧本已生成");
+}
+
+function polishScriptDraft() {
+  if (!scriptEditor) return;
+  if (!scriptEditor.value.trim()) generateScriptDraft(false);
+  const polishNote = "\n\n【对白润色规则】每场保留一句强情绪台词；每集结尾必须有反转信息；爱情线用动作推进，不只靠解释。";
+  if (!scriptEditor.value.includes("【对白润色规则】")) scriptEditor.value += polishNote;
+  dramaStudioState.scriptDraft = scriptEditor.value;
+  renderDramaOverview(currentProduction);
+  persistWorkflowEvent("script-polished", { title: currentProjectTitle || "未命名短剧" });
+  showToast("对白与节奏已润色");
+}
+
+function lockScriptDraft() {
+  if (!scriptEditor) return;
+  dramaStudioState.lockedScript = true;
+  dramaStudioState.scriptDraft = scriptEditor.value.trim() || dramaStudioState.scriptDraft;
+  scriptEditor.dataset.locked = "true";
+  persistWorkflowEvent("script-locked", { title: currentProjectTitle || "未命名短剧" });
+  renderDramaOverview(currentProduction);
+  showToast("剧本已锁定，可继续生成角色场景");
+}
+
+function exportScriptDraft() {
+  const content = scriptEditor?.value.trim() || dramaStudioState.scriptDraft || buildScriptDraft(currentProduction);
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${currentProjectTitle || currentProduction?.title || "短剧剧本"}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(link.href);
+  persistWorkflowEvent("script-export", { title: currentProjectTitle || "未命名短剧" });
+  showToast("剧本已导出");
+}
+
+async function handleDramaAction(action) {
+  if (action === "new-project") {
+    currentProduction = null;
+    resetDramaStudioState();
+    charactersData.length = 0;
+    scenesData.length = 0;
+    propsData.length = 0;
+    storyInput.value = "";
+    attachedFileName = "";
+    attachedFileText = "";
+    workflowSection?.classList.add("hidden");
+    refreshGenerateState();
+    storyInput.focus();
+    showToast("已准备新短剧项目");
+    return;
+  }
+  if (action === "import-script") {
+    fileInput?.click();
+    return;
+  }
+  if (action === "open-settings") {
+    openBackendSettings();
+    return;
+  }
+  const stepByAction = {
+    "open-script": "script",
+    "auto-assets": "asset",
+    "open-storyboard": "storyboard",
+    "open-voiceover": "voiceover",
+    "open-export": "final",
+  };
+  const production = await ensureDramaProduction(stepByAction[action] || "overview");
+  if (!production) return;
+  if (action === "open-script") generateScriptDraft(false);
+  if (action === "auto-assets") {
+    renderCharacterList();
+    renderSceneList();
+    renderPropList();
+  }
+  if (action === "open-storyboard") createStoryboard();
+  if (action === "open-voiceover") renderVoiceoverLines(production.voiceover || []);
+  if (action === "open-export") {
+    renderFinalPlan(production);
+    renderReviewPanel(production);
+  }
+  showStep(stepByAction[action] || "overview");
 }
 
 function wait(ms) {
@@ -2749,22 +3689,28 @@ function showWorkflowSection(title) {
   if (!workflowSection) return;
   currentProjectTitle = title || "未命名短剧";
   currentProduction = null;
+  resetDramaStudioState();
   // Reset final preview visibility
   if (finalPreview) finalPreview.classList.add("hidden");
   if (productionTitle) productionTitle.textContent = currentProjectTitle;
   // Reveal the workflow container
   workflowSection.classList.remove("hidden");
-  // Show first step (asset management) and hide others
-  showStep("asset");
+  // Show project overview first; the Agent list drives the rest of the flow.
+  showStep("overview");
   // Initialize lists to empty and render
   charactersData.length = 0;
   scenesData.length = 0;
+  propsData.length = 0;
+  ensurePropPrompts();
   renderCharacterList();
   renderSceneList();
+  renderPropList();
   renderProductionStages({ title: currentProjectTitle, stages: [] });
   renderBeatSheet([]);
   renderStoryboardFrames([]);
   renderVoiceoverLines([]);
+  renderDramaOverview({ title: currentProjectTitle, story: storyInput?.value?.trim() || currentProjectTitle, storyboard: [], voiceover: [] });
+  renderDramaAgentThread({ title: currentProjectTitle, story: storyInput?.value?.trim() || currentProjectTitle, storyboard: [], voiceover: [] });
   persistWorkflowEvent("project-open", { title: currentProjectTitle });
 }
 
@@ -2774,6 +3720,8 @@ function showWorkflowSection(title) {
  */
 function showStep(name) {
   const steps = {
+    overview: overviewStep,
+    script: scriptStep,
     asset: assetStep,
     beat: beatSheetStep,
     storyboard: storyboardStep,
@@ -2786,6 +3734,9 @@ function showStep(name) {
   });
   const el = steps[name];
   if (el) el.classList.remove("hidden");
+  dramaWorkflowTabs?.querySelectorAll("[data-drama-step]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.dramaStep === name);
+  });
 }
 
 /**
@@ -2794,6 +3745,8 @@ function showStep(name) {
 function createBeatSheet() {
   const beats = currentProduction?.beats || [];
   renderBeatSheet(beats);
+  renderDramaOverview(currentProduction);
+  renderDramaAgentThread(currentProduction);
   persistWorkflowEvent("beat-sheet", { beats });
 }
 
@@ -2803,26 +3756,32 @@ function createBeatSheet() {
 function createStoryboard() {
   const frames = currentProduction?.storyboard || [];
   renderStoryboardFrames(frames);
+  refreshDramaMetrics(currentProduction);
+  renderDramaAgentThread(currentProduction);
   persistWorkflowEvent("storyboard", { frames: frames.length || 8 });
 }
 
 function openAssetOverlay(type, assetId = "") {
   const isCharacter = type === "character";
+  const isProp = type === "prop";
   const editingAsset = assetId ? assetCollection(type).find((item) => item.id === assetId) : null;
-  const title = isCharacter ? "添加角色" : "添加场景";
-  const nameValue = editingAsset?.name || (isCharacter ? "白衣女主" : "雨夜街道");
+  const label = isCharacter ? "角色" : isProp ? "道具" : "场景";
+  const title = `添加${label}`;
+  const nameValue = editingAsset?.name || (isCharacter ? "白衣女主" : isProp ? "关键手机" : "雨夜街道");
   const descValue = editingAsset?.description || (isCharacter
     ? "冷静、克制、危险感，白色西装，电影感半身像"
-    : "湿润柏油路、霓虹反光、远处车辆灯光、悬疑气氛");
+    : isProp
+      ? "带有裂痕的深色手机，屏幕亮起未读消息，适合证据揭露和情绪特写"
+      : "湿润柏油路、霓虹反光、远处车辆灯光、悬疑气氛");
   toolOverlayBody.innerHTML = `
     <h2>${editingAsset ? "编辑" : title}</h2>
     <p>保存后会进入当前短剧工作流，也可以直接生成 gpt-image-2 参考图任务。</p>
     <label class="overlay-field">
-      <span>${isCharacter ? "角色名称" : "场景名称"}</span>
+      <span>${label}名称</span>
       <input id="assetNameInput" value="${escapeHtml(nameValue)}" />
     </label>
     <label class="overlay-field">
-      <span>${isCharacter ? "角色描述" : "场景描述"}</span>
+      <span>${label}描述</span>
       <textarea id="assetDescriptionInput" rows="4">${escapeHtml(descValue)}</textarea>
     </label>
     <label class="overlay-field">
@@ -2852,7 +3811,7 @@ function submitAssetOverlay(button) {
     return;
   }
   const asset = {
-    id: assetId || makeLocalId(type === "character" ? "char" : "scene"),
+    id: assetId || makeLocalId(type === "character" ? "char" : type === "prop" ? "prop" : "scene"),
     type,
     name,
     description,
@@ -2868,22 +3827,26 @@ function submitAssetOverlay(button) {
   else collection.unshift(asset);
   renderCharacterList();
   renderSceneList();
-  const requestPath = assetId ? `/api/assets/${type}/${encodeURIComponent(asset.id)}` : "/api/assets";
-  apiJson(requestPath, {
-    method: assetId ? "PATCH" : "POST",
-    body: JSON.stringify(asset),
-  }).then((data) => {
-    if (!data?.asset) return;
-    restoreAssets(data.assets);
-  });
+  renderPropList();
+  refreshDramaMetrics(currentProduction);
+  if (type !== "prop") {
+    const requestPath = assetId ? `/api/assets/${type}/${encodeURIComponent(asset.id)}` : "/api/assets";
+    apiJson(requestPath, {
+      method: assetId ? "PATCH" : "POST",
+      body: JSON.stringify(asset),
+    }).then((data) => {
+      if (!data?.asset) return;
+      restoreAssets(data.assets);
+    });
+  }
   persistWorkflowEvent("asset", { type, name, description });
   if (button.dataset.generateReference === "true") {
     apiJson("/api/generate", {
       method: "POST",
       body: JSON.stringify({
         kind: "image",
-        title: `${name} ${type === "character" ? "角色参考图" : "场景参考图"}`,
-        taskTitle: `${name} ${type === "character" ? "角色参考图" : "场景参考图"}`,
+        title: `${name} ${type === "character" ? "角色参考图" : type === "prop" ? "道具参考图" : "场景参考图"}`,
+        taskTitle: `${name} ${type === "character" ? "角色参考图" : type === "prop" ? "道具参考图" : "场景参考图"}`,
         prompt: description,
         source: "asset",
         productionId: currentProduction?.id || "",
@@ -2895,11 +3858,14 @@ function submitAssetOverlay(button) {
     });
   }
   closeToolOverlay();
-  showToast(`${type === "character" ? "角色" : "场景"}已保存`);
+  renderDramaAgentThread(currentProduction);
+  showToast(`${type === "character" ? "角色" : type === "prop" ? "道具" : "场景"}已保存`);
 }
 
 function assetCollection(type) {
-  return type === "scene" ? scenesData : charactersData;
+  if (type === "scene") return scenesData;
+  if (type === "prop") return propsData;
+  return charactersData;
 }
 
 function handleAssetListAction(event) {
@@ -2917,8 +3883,8 @@ function handleAssetListAction(event) {
       method: "POST",
       body: JSON.stringify({
         kind: "image",
-        title: `${asset.name} ${type === "character" ? "角色参考图" : "场景参考图"}`,
-        taskTitle: `${asset.name} ${type === "character" ? "角色参考图" : "场景参考图"}`,
+        title: `${asset.name} ${type === "character" ? "角色参考图" : type === "prop" ? "道具参考图" : "场景参考图"}`,
+        taskTitle: `${asset.name} ${type === "character" ? "角色参考图" : type === "prop" ? "道具参考图" : "场景参考图"}`,
         prompt: asset.prompt || asset.description,
         source: "asset",
         productionId: currentProduction?.id || "",
@@ -2940,10 +3906,15 @@ function handleAssetListAction(event) {
     if (index >= 0) collection.splice(index, 1);
     renderCharacterList();
     renderSceneList();
-    apiJson(`/api/assets/${type}/${encodeURIComponent(asset.id)}`, { method: "DELETE" }).then((data) => {
-      if (data?.assets) restoreAssets(data.assets);
-      if (canvasToolPanel?.classList.contains("open")) renderCanvasToolPanel("library");
-    });
+    renderPropList();
+    if (type !== "prop") {
+      apiJson(`/api/assets/${type}/${encodeURIComponent(asset.id)}`, { method: "DELETE" }).then((data) => {
+        if (data?.assets) restoreAssets(data.assets);
+        if (canvasToolPanel?.classList.contains("open")) renderCanvasToolPanel("library");
+      });
+    }
+    refreshDramaMetrics(currentProduction);
+    renderDramaAgentThread(currentProduction);
     showToast("资产已删除");
   }
 }
@@ -3000,6 +3971,27 @@ function renderSceneList() {
           s.id,
         )}">画布</button><button data-asset-action="delete" data-asset-type="scene" data-asset-id="${escapeHtml(
           s.id,
+        )}">删除</button></span></li>`,
+    )
+    .join("");
+}
+
+function renderPropList() {
+  if (!propList) return;
+  ensurePropPrompts(currentProduction);
+  propList.innerHTML = propsData
+    .map(
+      (p) =>
+        `<li data-asset-id="${escapeHtml(p.id)}"><strong>${escapeHtml(p.name)}</strong><small>${escapeHtml(
+          p.description || "",
+        )}</small><span class="asset-actions"><button data-asset-action="reference" data-asset-type="prop" data-asset-id="${escapeHtml(
+          p.id,
+        )}">参考图</button><button data-asset-action="edit" data-asset-type="prop" data-asset-id="${escapeHtml(
+          p.id,
+        )}">编辑</button><button data-asset-action="canvas" data-asset-type="prop" data-asset-id="${escapeHtml(
+          p.id,
+        )}">画布</button><button data-asset-action="delete" data-asset-type="prop" data-asset-id="${escapeHtml(
+          p.id,
         )}">删除</button></span></li>`,
     )
     .join("");
@@ -3083,19 +4075,102 @@ function sendAgentMessage() {
 
 storyInput.addEventListener("input", refreshGenerateState);
 
-fileInput.addEventListener("change", () => {
+fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
   attachedFileName = file ? file.name : "";
+  attachedFileText = file ? await readUploadedFileText(file) : "";
   if (attachedFileName && !storyInput.value.trim()) {
-    storyInput.value = `已上传《${attachedFileName}》，请制作成 9:16 竖屏短剧。`;
+    storyInput.value = attachedFileText
+      ? `已上传《${attachedFileName}》\n${attachedFileText.slice(0, 1200)}`
+      : `已上传《${attachedFileName}》，请制作成 9:16 竖屏短剧。`;
   }
   refreshGenerateState();
+  if (attachedFileName) {
+    startDramaProjectFromInput("upload");
+  }
+});
+
+document.querySelectorAll("[data-drama-action]").forEach((button) => {
+  button.addEventListener("click", () => {
+    handleDramaAction(button.dataset.dramaAction);
+  });
+});
+
+dramaWorkflowTabs?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-drama-step]");
+  if (!button) return;
+  const step = button.dataset.dramaStep;
+  const production = await ensureDramaProduction(step);
+  if (!production) return;
+  if (step === "script" && !scriptEditor?.value.trim()) generateScriptDraft(false);
+  if (step === "asset") {
+    renderCharacterList();
+    renderSceneList();
+    renderPropList();
+  }
+  if (step === "storyboard") createStoryboard();
+  if (step === "voiceover") renderVoiceoverLines(production.voiceover || []);
+  if (step === "final") {
+    renderFinalPlan(production);
+    renderReviewPanel(production);
+  }
+  showStep(step);
+});
+
+dramaAgentThread?.addEventListener("click", (event) => {
+  const openButton = event.target.closest("[data-agent-open]");
+  if (openButton) {
+    showStep(openButton.dataset.agentOpen);
+    return;
+  }
+  const rerunButton = event.target.closest("[data-agent-rerun]");
+  if (rerunButton) {
+    const index = Number(rerunButton.dataset.agentRerun);
+    if (Number.isFinite(index) && dramaStudioState.agentSteps[index]) {
+      dramaStudioState.agentSteps[index].status = "waiting";
+      runDramaAgentPipeline(index, currentProduction);
+    }
+  }
+});
+
+dramaAgentAutoButton?.addEventListener("click", () => {
+  const index = dramaStudioState.agentSteps.findIndex((step) => step.status !== "completed");
+  runDramaAgentPipeline(index >= 0 ? index : 0, currentProduction);
+});
+
+generateScriptButton?.addEventListener("click", () => generateScriptDraft(true));
+polishScriptButton?.addEventListener("click", polishScriptDraft);
+lockScriptButton?.addEventListener("click", lockScriptDraft);
+exportScriptButton?.addEventListener("click", exportScriptDraft);
+nextAssetFromOverviewButton?.addEventListener("click", async () => {
+  await ensureDramaProduction("asset");
+  renderCharacterList();
+  renderSceneList();
+  renderPropList();
+  showStep("asset");
+});
+nextAssetFromScriptButton?.addEventListener("click", async () => {
+  await ensureDramaProduction("asset");
+  renderCharacterList();
+  renderSceneList();
+  renderPropList();
+  showStep("asset");
+});
+
+[dramaGenreSelect, dramaFormatSelect, dramaTargetSelect].forEach((select) => {
+  select?.addEventListener("change", () => {
+    if (select === dramaFormatSelect && ratioSelect) ratioSelect.value = dramaFormatSelect.value;
+    renderDramaOverview(currentProduction);
+    renderDramaAgentThread(currentProduction);
+  });
 });
 
 $$(".episode-option").forEach((button) => {
   button.addEventListener("click", () => {
     selectedMode = button.dataset.mode;
     $$(".episode-option").forEach((item) => item.classList.toggle("active", item === button));
+    renderDramaOverview(currentProduction);
+    renderDramaAgentThread(currentProduction);
   });
 });
 
@@ -3140,7 +4215,17 @@ homeSubtabs.forEach((button) => {
 });
 
 templateCards.forEach((card) => {
-  const useTemplate = () => applySkill(card.dataset.skill, "home");
+  const useTemplate = () => {
+    if (card.dataset.factoryEntry === "true") {
+      switchView("factory", "爆款工厂已打开");
+      return;
+    }
+    if (card.dataset.tool) {
+      openToolOverlay(card.dataset.tool);
+      return;
+    }
+    applySkill(card.dataset.skill, "home");
+  };
   card.addEventListener("click", useTemplate);
   card.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -3156,6 +4241,33 @@ $$("[data-home-target]").forEach((button) => {
 
 categoryButtons.forEach((button) => {
   button.addEventListener("click", () => openTargetFromHome(button));
+});
+
+document.querySelectorAll("[data-factory-route]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const route = button.dataset.factoryRoute;
+    if (!route) return;
+    setFactoryFrameRoute(route, "爆款工厂已切换");
+  });
+});
+
+factoryModeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setActiveFactoryMode(button);
+    setFactoryPrompt(button.dataset.factoryPrompt);
+  });
+});
+
+document.querySelectorAll("[data-factory-prompt]").forEach((button) => {
+  if (button.matches("[data-factory-mode]")) return;
+  button.addEventListener("click", () => {
+    setFactoryPrompt(button.dataset.factoryPrompt);
+    switchView("factory", "已写入爆款工厂 Agent Canvas");
+  });
+});
+
+factoryLaunch?.addEventListener("click", () => {
+  setFactoryFrameRoute(buildFactoryLaunchRoute(), "已发送到爆款工厂");
 });
 
 newCanvasButton.addEventListener("click", () => switchView("board", "已进入画布"));
@@ -3204,6 +4316,7 @@ document.addEventListener("click", () => {
 $("#blankProject")?.addEventListener("click", () => {
   storyInput.value = "";
   attachedFileName = "";
+  attachedFileText = "";
   storyInput.focus();
   refreshGenerateState();
 });
@@ -3215,6 +4328,7 @@ projectGrid.addEventListener("click", (event) => {
   if (blank) {
     storyInput.value = "";
     attachedFileName = "";
+    attachedFileText = "";
     storyInput.focus();
     refreshGenerateState();
     switchView("drama", "可以开始创建新项目");
@@ -3314,6 +4428,7 @@ $$(".quick-card[data-home-target], .mini-projects div[data-home-target]").forEac
 
 renderSkillCatalog();
 filterSkillCatalog("all");
+setTemplateGroup("whats-new", false);
 hydrateIcons();
 refreshProjectCount();
 refreshGenerateState();
@@ -3525,6 +4640,10 @@ if (closeToolOverlayButton) {
 
 if (toolOverlayBody) {
   toolOverlayBody.addEventListener("click", (event) => {
+    if (event.target.closest("[data-tool-overlay-close]")) {
+      closeToolOverlay();
+      return;
+    }
     const editProviderButton = event.target.closest("[data-provider-edit]");
     if (editProviderButton) {
       fillProviderForm(editProviderButton.dataset.providerEdit);
@@ -3582,8 +4701,14 @@ if (addSceneButton) {
     openAssetOverlay("scene");
   });
 }
+if (addPropButton) {
+  addPropButton.addEventListener("click", () => {
+    openAssetOverlay("prop");
+  });
+}
 characterList?.addEventListener("click", handleAssetListAction);
 sceneList?.addEventListener("click", handleAssetListAction);
+propList?.addEventListener("click", handleAssetListAction);
 // Proceed to beat sheet from asset step
 if (nextBeatButton) {
   nextBeatButton.addEventListener("click", () => {
@@ -3596,6 +4721,7 @@ if (nextBeatButton) {
     });
     // Generate default beat sheet
     createBeatSheet();
+    renderDramaAgentThread(currentProduction);
     showStep("beat");
   });
 }
@@ -3610,6 +4736,7 @@ if (nextStoryboardButton) {
     }
     createStoryboard();
     persistWorkflowEvent("storyboard-started", { model: "gpt-image-2", frameCount: 8 });
+    renderDramaAgentThread(currentProduction);
     showStep("storyboard");
   });
 }
@@ -3641,6 +4768,8 @@ if (nextVoiceoverButton) {
       voice: voiceSelect?.value || "female",
       captions: !!captionToggle?.checked,
     });
+    renderDramaOverview(currentProduction);
+    renderDramaAgentThread(currentProduction);
     showStep("voiceover");
   });
 }
@@ -3655,6 +4784,9 @@ if (nextFinalButton) {
       music: $("#musicSelect")?.value || "none",
       videoModel: "Seedance 2.0",
     });
+    renderReviewPanel(currentProduction);
+    refreshDramaMetrics(currentProduction);
+    renderDramaAgentThread(currentProduction);
     showStep("final");
   });
 }
@@ -3697,6 +4829,8 @@ if (generateFinalButton) {
     if (finalPreview) {
       finalPreview.classList.remove("hidden");
     }
+    renderDramaOverview(currentProduction);
+    renderDramaAgentThread(currentProduction);
     showToast("最终视频已生成");
   });
 }
@@ -3732,6 +4866,8 @@ function handleFrameAction(action, index) {
     frame.status = "approved";
     renderStoryboardFrames(currentProduction.storyboard);
     persistWorkflowEvent("frame-approved", { frameId: frame.id, index });
+    renderReviewPanel(currentProduction);
+    renderDramaAgentThread(currentProduction);
     showToast("分镜已批准");
     return;
   }
@@ -3890,58 +5026,159 @@ function closeBoardEditor() {
  */
 function openToolOverlay(toolId) {
   const meta = toolMeta[toolId] || { title: "AI 工具", description: "请描述你的需求" };
-  // Build the form markup
   toolOverlayBody.innerHTML = `
-    <h2>${escapeHtml(meta.title)}</h2>
-    <p>${escapeHtml(meta.description)}</p>
-    <textarea id="toolPrompt" rows="3" placeholder="请输入你的描述..."></textarea>
-    <button id="submitToolButton" class="generate-button small"><span data-icon="send"></span>生成任务</button>
+    <div class="topview-tool-head">
+      <div>
+        <span>Topview-style tool</span>
+        <h2>${escapeHtml(meta.title)}</h2>
+        <p>${escapeHtml(meta.description)}</p>
+      </div>
+      <button class="sort-button" data-tool-overlay-close type="button">关闭</button>
+    </div>
+    <div class="topview-tool-summary">
+      <div><span>平台</span><strong>${escapeHtml(meta.platform || "通用")}</strong></div>
+      <div><span>画幅</span><strong>${escapeHtml(meta.ratio || "9:16")}</strong></div>
+      <div><span>时长</span><strong>${escapeHtml(meta.duration || "15s")}</strong></div>
+      <div><span>输出</span><strong>${escapeHtml(meta.output || "生成任务")}</strong></div>
+    </div>
+    <label class="overlay-field">
+      <span>Reference / URL / Prompt</span>
+      <textarea id="toolPrompt" rows="4" placeholder="粘贴商品链接、参考广告链接，或描述你要生成的视频...">${escapeHtml(meta.defaultPrompt || "")}</textarea>
+    </label>
+    <div class="overlay-field">
+      <span>参考素材</span>
+      <input id="toolReference" type="file" multiple />
+      <small>支持商品图、参考视频、Logo、字幕脚本；原型中会生成对应任务占位。</small>
+    </div>
+    <div class="tool-option-grid">
+      <label class="overlay-field">
+        <span>投放平台</span>
+        <select id="toolPlatform">
+          <option>TikTok</option>
+          <option>Instagram Reels</option>
+          <option>YouTube Shorts</option>
+          <option>Amazon</option>
+          <option>Shopify</option>
+          <option>小红书</option>
+          <option>抖音</option>
+        </select>
+      </label>
+      <label class="overlay-field">
+        <span>画幅</span>
+        <select id="toolRatio">
+          <option>9:16</option>
+          <option>16:9</option>
+          <option>1:1</option>
+          <option>4:5</option>
+        </select>
+      </label>
+      <label class="overlay-field">
+        <span>时长</span>
+        <select id="toolDuration">
+          <option>15s</option>
+          <option>30s</option>
+          <option>60s</option>
+          <option>1-5 min</option>
+        </select>
+      </label>
+      <label class="overlay-field">
+        <span>变体数量</span>
+        <select id="toolVariants">
+          <option>3</option>
+          <option>5</option>
+          <option>10</option>
+          <option>20</option>
+        </select>
+      </label>
+    </div>
+    <div class="tool-brand-kit">
+      <label class="overlay-field"><span>品牌名</span><input id="toolBrand" placeholder="可选" /></label>
+      <label class="overlay-field"><span>主色</span><input id="toolColor" placeholder="#23D8A2 / 品牌色" /></label>
+      <label class="overlay-field"><span>CTA</span><input id="toolCta" placeholder="立即购买 / 了解更多 / 领取优惠" /></label>
+    </div>
+    <div class="tool-pipeline">
+      <span>1. Analyze</span>
+      <span>2. Script</span>
+      <span>3. Storyboard</span>
+      <span>4. Generate</span>
+      <span>5. Export</span>
+    </div>
+    <div class="tool-export-row">
+      <label><input type="checkbox" checked /> 自动字幕</label>
+      <label><input type="checkbox" checked /> 安全区适配</label>
+      <label><input type="checkbox" checked /> 多语言版本</label>
+      <label><input type="checkbox" /> 直接发布草稿</label>
+    </div>
+    <div class="tool-overlay-actions">
+      <button id="submitToolButton" class="generate-button small"><span data-icon="send"></span>生成任务</button>
+      ${meta.factory ? '<button id="sendFactoryButton" class="generate-button small secondary" type="button"><span data-icon="shopping-cart"></span>发送到爆款工厂</button>' : ""}
+    </div>
   `;
   toolOverlay.classList.remove("hidden");
   hydrateIcons();
-  // Attach click handler for form submission
-  const submitBtn = document.getElementById("submitToolButton");
-  if (submitBtn) {
-    submitBtn.addEventListener("click", () => {
-      const promptInput = document.getElementById("toolPrompt");
-      const userPrompt = promptInput ? promptInput.value.trim() : "";
-      // Create a task name. If there's a current project, prefix it.
+  const submitTool = (openFactory = false) => {
+    const promptInput = document.getElementById("toolPrompt");
+    const userPrompt = promptInput ? promptInput.value.trim() : "";
+    const referenceInput = document.getElementById("toolReference");
+    const referenceCount = referenceInput?.files?.length || 0;
+    const platform = document.getElementById("toolPlatform")?.value || "";
+    const ratio = document.getElementById("toolRatio")?.value || "";
+    const duration = document.getElementById("toolDuration")?.value || "";
+    const variants = document.getElementById("toolVariants")?.value || "";
+    const brand = document.getElementById("toolBrand")?.value.trim() || "";
+    const color = document.getElementById("toolColor")?.value.trim() || "";
+    const cta = document.getElementById("toolCta")?.value.trim() || "";
       const taskName = currentProjectTitle
         ? `${currentProjectTitle} ${meta.title}`
         : meta.title;
-      const kind = toolId.startsWith("video") ? "video" : toolId.startsWith("audio") ? "audio" : "image";
-      apiJson("/api/generate", {
-        method: "POST",
-        body: JSON.stringify({
-          kind,
-          title: taskName,
-          taskTitle: taskName,
-          toolId,
-          toolTitle: meta.title,
-          prompt: userPrompt,
-          source: "tool",
-          productionId: currentProduction?.id || "",
-        }),
-      }).then((data) => {
-        if (data?.task) {
-          if (Array.isArray(data.allTasks)) mergeBackendTasks(data.allTasks);
-          else {
-            tasks.unshift(data.task);
-            renderTaskTable();
-            renderStatusGrid();
-          }
-          if (Array.isArray(data.outputs)) currentOutputs = data.outputs;
-        } else {
-          addTask(taskName, {
-            source: "tool",
-            note: toolId.startsWith("video") ? "Seedance 2.0" : "gpt-image-2",
-          });
+    const kind = toolId.startsWith("audio") ? "audio" : toolId.includes("image") || toolId.includes("photo") || toolId.includes("shoot") ? "image" : "video";
+    apiJson("/api/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        kind,
+        title: taskName,
+        taskTitle: taskName,
+        toolId,
+        toolTitle: meta.title,
+        prompt: userPrompt,
+        source: "topview-tool",
+        platform,
+        ratio,
+        duration,
+        variants,
+        brand,
+        color,
+        cta,
+        referenceCount,
+        productionId: currentProduction?.id || "",
+      }),
+    }).then((data) => {
+      if (data?.task) {
+        if (Array.isArray(data.allTasks)) mergeBackendTasks(data.allTasks);
+        else {
+          tasks.unshift(data.task);
+          renderTaskTable();
+          renderStatusGrid();
         }
-      });
-      showToast(`${meta.title} 任务已提交`);
-      closeToolOverlay();
+        if (Array.isArray(data.outputs)) currentOutputs = data.outputs;
+      } else {
+        addTask(taskName, {
+          source: "topview-tool",
+          note: `${platform || meta.platform || "Topview"} · ${ratio || meta.ratio || "9:16"} · ${variants || "3"} variants`,
+        });
+      }
     });
-  }
+    if (openFactory && meta.factory) {
+      const nextPrompt = [userPrompt || meta.defaultPrompt, brand && `品牌：${brand}`, cta && `CTA：${cta}`].filter(Boolean).join("\n");
+      setFactoryPrompt(nextPrompt);
+      setFactoryFrameRoute(buildFactoryRouteFromPrompt(nextPrompt, meta), "已发送到爆款工厂");
+    } else {
+      switchView("workbench", `${meta.title} 任务已提交`);
+    }
+    closeToolOverlay();
+  };
+  document.getElementById("submitToolButton")?.addEventListener("click", () => submitTool(false));
+  document.getElementById("sendFactoryButton")?.addEventListener("click", () => submitTool(true));
 }
 
 /**
@@ -3950,3 +5187,6 @@ function openToolOverlay(toolId) {
 function closeToolOverlay() {
   toolOverlay.classList.add("hidden");
 }
+
+syncViewFromHash();
+window.addEventListener("hashchange", syncViewFromHash);

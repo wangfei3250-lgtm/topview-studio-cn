@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js 4177",
-    "check": "node --check app.js && node --check server.js"
+    "check": "node --check app.js && node --check server.js",
+    "factory": "node factory/server/index.js",
+    "factory:smoke": "node --disable-warning=ExperimentalWarning factory/scripts/smoke.mjs"
   },
   "keywords": [
     "ai-video",

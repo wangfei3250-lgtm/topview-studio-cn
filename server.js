@@ -8,6 +8,14 @@ const port = Number(process.argv[2] || 4177);
 const dataDir = path.join(root, "data");
 const dataFile = path.join(dataDir, "studio-state.json");
 
+// === 爆款工厂整合（同进程挂载真实后端：商品→广告脚本 / 本地兜底出图出片 / 多语言SRT / Agent·MCP·OpenAPI）===
+// 命名空间隔离：/api/factory/* 、/factory/*（工作台 UI）、/factory-uploads/*（产物），与本仓库现有路由互不冲突。
+// 引擎为 ESM，异步动态加载；加载完成前命中这些前缀返回 503 让前端重试。
+let factoryDispatch = null;
+import("./factory/server/mount.mjs")
+  .then((m) => { factoryDispatch = m.factoryDispatch; console.log("[factory] 爆款工厂引擎已挂载：/factory/  ·  /api/factory/  ·  /api/factory/agent/v1/openapi.json"); })
+  .catch((err) => console.error("[factory] 挂载失败（需 Node ≥ 22.5）：", err && err.message));
+
 const mime = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -1770,6 +1778,19 @@ http
   .createServer((req, res) => {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     const { pathname } = requestUrl;
+
+    // 爆款工厂命名空间 → 交给挂载的引擎处理（在本仓库 handleApi 之前拦截）
+    if (
+      pathname.startsWith("/api/factory") ||
+      pathname === "/factory" || pathname.startsWith("/factory/") ||
+      pathname.startsWith("/factory-uploads")
+    ) {
+      if (!factoryDispatch) { res.writeHead(503, { "content-type": "text/plain; charset=utf-8" }); res.end("爆款工厂引擎加载中，请稍后重试"); return; }
+      Promise.resolve(factoryDispatch(req, res, pathname, requestUrl.searchParams))
+        .then((handled) => { if (!handled && !res.writableEnded) { res.writeHead(404); res.end("not found"); } })
+        .catch((err) => { console.error("[factory]", err); if (!res.writableEnded) { res.writeHead(500); res.end("factory error"); } });
+      return;
+    }
 
     if (handleApi(req, res, pathname)) return;
 
